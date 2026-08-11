@@ -150,6 +150,10 @@ export interface Shift {
   requiredHeadcount?: number;
   /** Active PENDING + CONFIRMED claims filling slots. */
   filledSlots?: number;
+  /** Extra $/hr from facility escalation surge. */
+  surgeBonusPay?: number;
+  surgeTierApplied?: number;
+  escalationRadiusBonusMiles?: number;
   createdBy: string;
   createdAt: string;
 }
@@ -160,7 +164,7 @@ export interface ScheduleRosterSlot {
   firstName: string;
   lastName: string;
   status: ClaimStatus;
-  source: "MARKETPLACE" | "ASSIGNED";
+  source: "MARKETPLACE" | "ASSIGNED" | "INVITE";
 }
 
 export interface ScheduleShiftCard {
@@ -196,7 +200,7 @@ export interface ShiftClaim {
   caregiverLastName: string;
   caregiverEmail: string;
   status: ClaimStatus;
-  source?: "MARKETPLACE" | "ASSIGNED";
+  source?: "MARKETPLACE" | "ASSIGNED" | "INVITE";
   claimedAt: string;
   releasedAt: string | null;
   cancelReason: string | null;
@@ -214,6 +218,36 @@ export interface CaregiverOption {
   serviceRadiusMiles: number | null;
   homeLat: number | null;
   homeLng: number | null;
+}
+
+export interface ContinuityCaregiverSuggestion {
+  caregiverProfileId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  qualifications: Qualification[];
+  continuityScore: number;
+  continuityLabel: string;
+  rosterType: AssignmentType | null;
+  completedShiftsWithClient: number;
+  ratingAvg: number | null;
+  eligible: boolean;
+}
+
+export interface OpsAttention {
+  openUnfilledShifts: number;
+  openWithoutKnownCaregiver: number;
+  credentialsExpiringSoon: number;
+  sentUnpaidInvoices: number;
+  evvExceptions: number;
+  items: {
+    key: string;
+    title: string;
+    detail: string;
+    href: string;
+    count: number;
+    severity: "high" | "medium" | "low" | string;
+  }[];
 }
 
 export interface ClientCaregiverAssignment {
@@ -277,11 +311,14 @@ export type AuditAction =
   | "CLIENT_CAREGIVER_ASSIGNED"
   | "CLIENT_CAREGIVER_UNASSIGNED"
   | "AGENCY_SETTINGS_UPDATED"
+  | "MARKETPLACE_RULE_PACK_UPDATED"
+  | "CREDENTIAL_UPSERTED"
+  | "CREDENTIAL_PRIMARY_SOURCE_CHECKED"
   | "CLIENT_PAYMENT_UPDATED"
   | "CAREGIVER_PAYMENT_UPDATED"
   | "SETTLEMENT_PAYMENT_SYNCED";
 
-export type PaymentStatus = "PENDING" | "PAID";
+export type PaymentStatus = "PENDING" | "PROCESSING" | "PAID";
 export type PayPeriodType = "WEEKLY" | "BIWEEKLY";
 
 export interface AgencySettings {
@@ -300,6 +337,44 @@ export interface AgencySettings {
   autoInvoiceSendImmediately: boolean;
   clientCaregiverRejectionFee: number;
   platformConversionFee: number;
+}
+
+export type MatchingMode = "RADIUS" | "DRIVE_TIME";
+export type ShiftChannel = "FACILITY" | "HOME" | "BOTH";
+export type CredentialType =
+  | "LICENSE"
+  | "BLS"
+  | "CPR"
+  | "FIRST_AID"
+  | "TB_TEST"
+  | "DRUG_SCREEN"
+  | "CORI"
+  | "SORI"
+  | "OTHER";
+
+export interface QualificationRulePack {
+  id: string;
+  qualification: Qualification;
+  preferredChannel: ShiftChannel;
+  matchingMode: MatchingMode;
+  enforceCredentials: boolean;
+  requiredCredentials: CredentialType[];
+  credentialExpiryBlockDays: number;
+  cancelNoticeHours: number;
+  surgeEligible: boolean;
+  evvRequired: boolean;
+  maxDriveMinutes: number | null;
+  travelPayEnabled: boolean;
+  travelPayPerMinute: number;
+  escalationTier1Hours: number;
+  escalationTier1SurgeBonus: number;
+  escalationTier1RadiusBonusMiles: number;
+  escalationTier2Hours: number;
+  escalationTier2SurgeBonus: number;
+  escalationTier2RadiusBonusMiles: number;
+  escalationTier3Hours: number;
+  escalationTier3SurgeBonus: number;
+  escalationTier3RadiusBonusMiles: number;
 }
 
 export interface FinanceSummary {
@@ -386,6 +461,10 @@ export type NotificationType =
   | "SHIFT_POSTED"
   | "SHIFT_CLAIMED"
   | "SHIFT_ASSIGNED"
+  | "SHIFT_INVITED"
+  | "SHIFT_INVITE_ACCEPTED"
+  | "SHIFT_INVITE_DECLINED"
+  | "SHIFT_INVITE_FAILED"
   | "SHIFT_CONFIRMED"
   | "SHIFT_RELEASED"
   | "SHIFT_HELD"

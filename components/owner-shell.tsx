@@ -21,6 +21,7 @@ import {
   Settings,
   UserCog,
 } from "lucide-react";
+import { BrandLogo } from "@/components/brand-logo";
 import { NotificationBell } from "@/components/notification-bell";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "./ui/button";
@@ -102,16 +103,14 @@ export function OwnerShell({ children }: { children: React.ReactNode }) {
           {collapsed ? (
             <Link
               href="/"
-              className="flex h-8 w-8 items-center justify-center rounded font-display text-sm font-semibold text-white"
+              className="flex h-8 w-8 items-center justify-center"
               title="OkayNow Owner console"
             >
-              ON
+              <BrandLogo variant="mark" height={32} />
             </Link>
           ) : (
             <Link href="/" className="min-w-0 flex-1">
-              <div className="font-display text-lg font-semibold tracking-tight text-white">
-                OkayNow
-              </div>
+              <BrandLogo variant="primary" height={32} />
               <div className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-sidebar-muted">
                 Owner console
               </div>
@@ -204,8 +203,8 @@ export function OwnerShell({ children }: { children: React.ReactNode }) {
         <header className="sticky top-0 z-[80] flex items-center justify-between gap-3 border-b border-line bg-panel/95 px-4 py-2.5 backdrop-blur supports-[backdrop-filter]:bg-panel/80 sm:px-6">
           <div className="min-w-0">
             <div className="flex items-center gap-2 md:hidden">
-              <Link href="/" className="font-display text-base font-semibold">
-                OkayNow
+              <Link href="/">
+                <BrandLogo variant="primary" height={28} />
               </Link>
               <span className="text-ink-muted" aria-hidden>
                 /

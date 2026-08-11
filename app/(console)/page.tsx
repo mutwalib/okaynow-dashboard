@@ -1,10 +1,16 @@
 "use client";
 
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { getAdminClaims, getFinanceSummary, getShifts } from "@/lib/api";
+import { getAdminClaims, getFinanceSummary, getOpsAttention, getShifts } from "@/lib/api";
 import { formatMoney, defaultStatsDateRange } from "@/lib/format";
-import { CircleDollarSign, LayoutDashboard, Plus } from "lucide-react";
+import {
+  AlertTriangle,
+  CircleDollarSign,
+  LayoutDashboard,
+  Plus,
+} from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
+import Link from "next/link";
 
 export default function DashboardPage() {
   const statsRange = defaultStatsDateRange();
@@ -45,10 +51,18 @@ export default function DashboardPage() {
     retry: false,
   });
 
+  const attention = useQuery({
+    queryKey: ["ops-attention"],
+    queryFn: getOpsAttention,
+    retry: false,
+    refetchInterval: 60_000,
+  });
+
   const [openQ, claimedQ, confirmedQ, completedQ, claimsQ] = results;
   const loading = results.some((r) => r.isLoading) || finance.isLoading;
   const claimsUnavailable = claimsQ.isError;
   const f = finance.data;
+  const items = attention.data?.items ?? [];
 
   const kpis = [
     { label: "Open", value: openQ.data?.totalElements ?? "—" },
@@ -66,7 +80,8 @@ export default function DashboardPage() {
             Operations dashboard
           </h1>
           <p className="mt-1 text-sm text-ink-muted">
-            Live shift counts plus balances for the last 7 days through today.
+            What needs a decision today — continuity gaps, seats, credentials,
+            money, and visit exceptions.
           </p>
         </div>
         <div className="flex gap-2">
@@ -80,6 +95,45 @@ export default function DashboardPage() {
           </ButtonLink>
         </div>
       </div>
+
+      {attention.isLoading ? (
+        <p className="text-sm text-ink-muted">Checking what needs attention…</p>
+      ) : items.length > 0 ? (
+        <section className="space-y-2">
+          <p className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-ink-muted">
+            <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
+            Needs attention
+          </p>
+          <ul className="divide-y divide-line rounded border border-line bg-panel">
+            {items.map((item) => (
+              <li key={item.key}>
+                <Link
+                  href={item.href}
+                  className="flex items-start justify-between gap-3 px-4 py-3 transition hover:bg-paper"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-ink">{item.title}</p>
+                    <p className="mt-0.5 text-xs text-ink-muted">{item.detail}</p>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded px-2 py-0.5 font-mono text-[10px] uppercase ${
+                      item.severity === "high"
+                        ? "bg-amber-100 text-amber-900"
+                        : "bg-line/60 text-ink-muted"
+                    }`}
+                  >
+                    {item.count}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : attention.isSuccess ? (
+        <section className="rounded border border-line bg-panel px-4 py-3 text-sm text-ink-muted">
+          Nothing urgent — open seats, credentials, invoices, and EVV look clear.
+        </section>
+      ) : null}
 
       {loading ? (
         <p className="text-sm text-ink-muted">Loading KPIs…</p>

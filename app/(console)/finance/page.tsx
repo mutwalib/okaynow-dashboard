@@ -18,10 +18,8 @@ import { ListPagination } from "@/components/ui/list-pagination";
 import {
   Banknote,
   CalendarRange,
-  CheckCircle2,
   ListChecks,
   Receipt,
-  Undo2,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -273,6 +271,7 @@ export default function FinancePage() {
                 >
                   <option value="">All</option>
                   <option value="PENDING">Pending</option>
+                  <option value="PROCESSING">Processing</option>
                   <option value="PAID">Paid</option>
                 </Select>
               </Field>
@@ -285,6 +284,7 @@ export default function FinancePage() {
                 >
                   <option value="">All</option>
                   <option value="PENDING">Pending (to pay)</option>
+                  <option value="PROCESSING">Processing</option>
                   <option value="PAID">Paid</option>
                 </Select>
               </Field>
@@ -373,7 +373,9 @@ export default function FinancePage() {
                         className={
                           row.clientPaymentStatus === "PAID"
                             ? "text-success"
-                            : "text-warn"
+                            : row.clientPaymentStatus === "PROCESSING"
+                              ? "text-accent-deep"
+                              : "text-warn"
                         }
                       >
                         {row.clientPaymentStatus}
@@ -385,7 +387,9 @@ export default function FinancePage() {
                         className={
                           row.caregiverPaymentStatus === "PAID"
                             ? "text-success"
-                            : "text-warn"
+                            : row.caregiverPaymentStatus === "PROCESSING"
+                              ? "text-accent-deep"
+                              : "text-warn"
                         }
                       >
                         {row.caregiverPaymentStatus}
@@ -395,75 +399,53 @@ export default function FinancePage() {
                       {row.payPeriodStart} → {row.payPeriodEnd}
                     </td>
                     <td>
-                      <div className="flex flex-wrap gap-1">
-                        <Button
-                          size="sm"
-                          variant="secondary"
+                      <div className="flex flex-wrap items-center gap-1">
+                        <Select
+                          aria-label="Client payment status"
+                          className="min-w-[8.5rem]"
+                          value={row.clientPaymentStatus}
                           disabled={markClient.isPending}
-                          onClick={() => {
-                            const next =
-                              row.clientPaymentStatus === "PAID"
-                                ? "PENDING"
-                                : "PAID";
+                          onChange={(e) => {
+                            const next = e.target.value as PaymentStatus;
+                            if (next === row.clientPaymentStatus) return;
                             if (
                               !confirmAction(
-                                next === "PAID"
-                                  ? `Mark client payment PAID for the ${row.shiftDate} shift (${formatMoney(Number(row.clientAmount))})?`
-                                  : `Mark client payment unpaid again for the ${row.shiftDate} shift?`,
+                                `Set client payment to ${next} for the ${row.shiftDate} shift (${formatMoney(Number(row.clientAmount))})?`,
                               )
                             ) {
+                              e.target.value = row.clientPaymentStatus;
                               return;
                             }
                             markClient.mutate({ id: row.id, status: next });
                           }}
                         >
-                          {row.clientPaymentStatus === "PAID" ? (
-                            <>
-                              <Undo2 className="h-3.5 w-3.5" aria-hidden />
-                              Unpay client
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle2
-                                className="h-3.5 w-3.5"
-                                aria-hidden
-                              />
-                              Client paid
-                            </>
-                          )}
-                        </Button>
-                        <Button
-                          size="sm"
+                          <option value="PENDING">Pending</option>
+                          <option value="PROCESSING">Processing</option>
+                          <option value="PAID">Paid</option>
+                        </Select>
+                        <Select
+                          aria-label="Caregiver payment status"
+                          className="min-w-[8.5rem]"
+                          value={row.caregiverPaymentStatus}
                           disabled={markCaregiver.isPending}
-                          onClick={() => {
-                            const next =
-                              row.caregiverPaymentStatus === "PAID"
-                                ? "PENDING"
-                                : "PAID";
+                          onChange={(e) => {
+                            const next = e.target.value as PaymentStatus;
+                            if (next === row.caregiverPaymentStatus) return;
                             if (
                               !confirmAction(
-                                next === "PAID"
-                                  ? `Mark caregiver paid for the ${row.shiftDate} shift (${formatMoney(Number(row.caregiverAmount))})?`
-                                  : `Mark caregiver payment unpaid again for the ${row.shiftDate} shift?`,
+                                `Set caregiver payment to ${next} for the ${row.shiftDate} shift (${formatMoney(Number(row.caregiverAmount))})?`,
                               )
                             ) {
+                              e.target.value = row.caregiverPaymentStatus;
                               return;
                             }
                             markCaregiver.mutate({ id: row.id, status: next });
                           }}
                         >
-                          {row.caregiverPaymentStatus === "PAID" ? (
-                            <>
-                              <Undo2 className="h-3.5 w-3.5" aria-hidden />
-                              Unpay CG
-                            </>
-                          ) : (
-                            <>
-                              <Banknote className="h-3.5 w-3.5" aria-hidden />
-                              Pay CG
-                            </>
-                          )}
-                        </Button>
+                          <option value="PENDING">Pending</option>
+                          <option value="PROCESSING">Processing</option>
+                          <option value="PAID">Paid</option>
+                        </Select>
                       </div>
                     </td>
                   </tr>

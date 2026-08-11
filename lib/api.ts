@@ -30,6 +30,7 @@ import type {
   Visit,
   AppNotification,
   CaregiverReview,
+  QualificationRulePack,
 } from "./types";
 
 const API_BASE_URL =
@@ -342,6 +343,13 @@ export function assignCaregiverToShift(shiftId: string, caregiverProfileId: stri
   });
 }
 
+export function inviteCaregiverToShift(shiftId: string, caregiverProfileId: string) {
+  return request<ShiftClaim>(`/api/admin/shifts/${shiftId}/invite`, {
+    method: "POST",
+    body: JSON.stringify({ caregiverProfileId }),
+  });
+}
+
 export function unassignCaregiverFromShift(shiftId: string) {
   return request<ShiftClaim>(`/api/admin/shifts/${shiftId}/unassign`, {
     method: "POST",
@@ -488,6 +496,16 @@ export function getCaregiverOptions() {
   return request<CaregiverOption[]>("/api/admin/caregiver-options");
 }
 
+export function getSuggestedCaregivers(shiftId: string) {
+  return request<import("./types").ContinuityCaregiverSuggestion[]>(
+    `/api/admin/shifts/${shiftId}/suggested-caregivers`,
+  );
+}
+
+export function getOpsAttention() {
+  return request<import("./types").OpsAttention>("/api/admin/ops/attention");
+}
+
 export function getClientCaregivers(clientId: string) {
   return request<ClientCaregiverAssignment[]>(
     `/api/admin/clients/${clientId}/caregivers`,
@@ -550,6 +568,24 @@ export function updateAgencySettings(payload: AgencySettings) {
     method: "PUT",
     body: JSON.stringify(payload),
   });
+}
+
+export function listMarketplaceRulePacks() {
+  return request<QualificationRulePack[]>("/api/admin/marketplace/rule-packs");
+}
+
+export function updateMarketplaceRulePack(
+  qualification: Qualification,
+  payload: Omit<QualificationRulePack, "id" | "qualification"> &
+    Partial<Pick<QualificationRulePack, "id" | "qualification">>,
+) {
+  return request<QualificationRulePack>(
+    `/api/admin/marketplace/rule-packs/${qualification}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    },
+  );
 }
 
 export type LegalDocumentType =

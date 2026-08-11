@@ -4,6 +4,7 @@ import { FormEvent, Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { formatAuthError, useAuth } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast-context";
+import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { LogIn } from "lucide-react";
@@ -47,8 +48,8 @@ function LoginForm() {
     <div className="flex min-h-screen bg-sidebar">
       <div className="mx-auto flex w-full max-w-sm flex-col justify-center px-6 py-12">
         <div className="animate-in">
-          <p className="font-display text-2xl font-semibold text-white">OkayNow</p>
-          <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-sidebar-muted">
+          <BrandLogo variant="primary" priority height={40} />
+          <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.16em] text-sidebar-muted">
             Platform owner console
           </p>
         </div>

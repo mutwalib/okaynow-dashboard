@@ -161,11 +161,11 @@ export default function ReportsPage() {
     <div className="space-y-6 animate-in">
       <div className="flex flex-wrap items-start gap-4">
         <img
-          src="/okaynow-logo.png"
+          src="/branding/okaynow_primary_logo.png"
           alt="OkayNow"
-          width={48}
-          height={48}
-          className="rounded-lg"
+          width={200}
+          height={60}
+          className="h-12 w-auto"
         />
         <div>
           <h1 className="inline-flex items-center gap-2 font-display text-2xl font-semibold">
@@ -223,6 +223,7 @@ export default function ReportsPage() {
                 >
                   <option value="">All</option>
                   <option value="PENDING">Pending</option>
+                  <option value="PROCESSING">Processing</option>
                   <option value="PAID">Paid</option>
                 </Select>
               </Field>
@@ -237,6 +238,7 @@ export default function ReportsPage() {
                 >
                   <option value="">All</option>
                   <option value="PENDING">Pending</option>
+                  <option value="PROCESSING">Processing</option>
                   <option value="PAID">Paid</option>
                 </Select>
               </Field>

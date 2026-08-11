@@ -5,12 +5,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import {
   assignCaregiverToShift,
+  inviteCaregiverToShift,
   cancelShift,
   completeShift,
   deleteShift,
   extendShift,
   getAdminClients,
-  getCaregiverOptions,
+  getSuggestedCaregivers,
   getClientCaregivers,
   getShiftClaims,
   getShift,
@@ -70,8 +71,9 @@ export default function ShiftDetailPage() {
     queryFn: () => getShiftClaims(id),
   });
   const caregivers = useQuery({
-    queryKey: ["caregiver-options"],
-    queryFn: getCaregiverOptions,
+    queryKey: ["suggested-caregivers", id],
+    queryFn: () => getSuggestedCaregivers(id),
+    enabled: !!id,
   });
   const roster = useQuery({
     queryKey: ["client-roster", query.data?.clientProfileId],
@@ -191,6 +193,15 @@ export default function ShiftDetailPage() {
       invalidate();
       setAssignCaregiverId("");
       showToast("Caregiver assigned to shift", "success");
+    },
+    onError: (err: Error) => showToast(err.message, "error"),
+  });
+  const invite = useMutation({
+    mutationFn: () => inviteCaregiverToShift(id, assignCaregiverId),
+    onSuccess: () => {
+      invalidate();
+      setAssignCaregiverId("");
+      showToast("Invitation sent — caregiver must accept", "success");
     },
     onError: (err: Error) => showToast(err.message, "error"),
   });
@@ -344,7 +355,12 @@ export default function ShiftDetailPage() {
                     {claim.caregiverEmail}
                   </a>
                   <p className="mt-1 text-xs text-ink-muted">
-                    {claim.source === "ASSIGNED" ? "Assigned" : "Marketplace"} ·{" "}
+                    {claim.source === "ASSIGNED"
+                      ? "Assigned"
+                      : claim.source === "INVITE"
+                        ? "Invite"
+                        : "Marketplace"}{" "}
+                    ·{" "}
                     {new Date(claim.claimedAt).toLocaleString()}
                   </p>
                   {claim.cancelReason ? (
@@ -459,15 +475,18 @@ export default function ShiftDetailPage() {
         </div>
       ) : null}
 
-      {s.status === "OPEN" || s.status === "DRAFT" || s.status === "HELD" ? (
+      {s.status === "OPEN" ||
+      s.status === "DRAFT" ||
+      s.status === "HELD" ||
+      s.status === "CLAIMED" ? (
         <div className="rounded border border-line bg-panel p-3">
           <p className="font-mono text-[10px] uppercase text-ink-muted">
-            Direct assignment
+            Direct assignment / invite
           </p>
           <p className="mt-1 text-sm text-ink-muted">
             {s.status === "OPEN"
-              ? "Assign & confirm a caregiver now (fills a marketplace slot), or leave it OPEN for eligible caregivers to claim."
-              : "Assign & confirm a caregiver privately. The shift stays off the open board — only that caregiver, the family/facility, and you can see it."}
+              ? "Prefer known caregivers first (primary / roster / history), then marketplace. Invite asks them to accept; assign confirms immediately."
+              : "Invite privately (caregiver accepts/declines) or assign & confirm. List is ranked by continuity with this client — not a random gig fill."}
           </p>
           {(roster.data?.length ?? 0) > 0 ? (
             <p className="mt-2 text-xs text-ink-muted">
@@ -479,27 +498,48 @@ export default function ShiftDetailPage() {
                 )
                 .join(", ")}
             </p>
+          ) : s.clientProfileId ? (
+            <p className="mt-2 text-xs text-amber-800">
+              No roster yet — add a PRIMARY caregiver on the client page before
+              defaulting to open marketplace.
+            </p>
           ) : null}
           <div className="mt-3 flex max-w-lg flex-wrap items-end gap-2">
             <div className="min-w-[14rem] flex-1">
-              <Field label="Caregiver">
+              <Field label="Caregiver (continuity ranked)">
                 <Select
                   value={assignCaregiverId}
                   onChange={(e) => setAssignCaregiverId(e.target.value)}
                 >
                   <option value="">Choose caregiver…</option>
-                  {(caregivers.data ?? []).map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.firstName} {c.lastName} ·{" "}
-                      {c.qualifications.join(", ") || "no quals"}
-                    </option>
-                  ))}
+                  {(caregivers.data ?? [])
+                    .filter((c) => c.eligible)
+                    .map((c) => (
+                      <option key={c.caregiverProfileId} value={c.caregiverProfileId}>
+                        {c.firstName} {c.lastName} · {c.continuityLabel}
+                        {c.qualifications?.length
+                          ? ` · ${c.qualifications.join(", ")}`
+                          : ""}
+                      </option>
+                    ))}
                 </Select>
               </Field>
             </div>
             <Button
               size="sm"
-              disabled={!assignCaregiverId || assign.isPending}
+              variant="secondary"
+              disabled={!assignCaregiverId || invite.isPending || assign.isPending}
+              onClick={() =>
+                ask("Send a private invitation? The caregiver must accept.", () =>
+                  invite.mutate(),
+                )
+              }
+            >
+              {invite.isPending ? "Inviting…" : "Invite"}
+            </Button>
+            <Button
+              size="sm"
+              disabled={!assignCaregiverId || assign.isPending || invite.isPending}
               onClick={() =>
                 ask("Assign and confirm this caregiver on the shift?", () =>
                   assign.mutate(),

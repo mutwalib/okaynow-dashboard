@@ -6,6 +6,7 @@ import type { AgencySettings, PayPeriodType } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/field";
 import { LegalDocumentsPanel } from "@/components/legal-documents-panel";
+import { MarketplaceRulePacksPanel } from "@/components/marketplace-rule-packs-panel";
 import { Save, Settings } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -62,7 +63,7 @@ export default function SettingsPage() {
   const agencyCut = Number.isFinite(bill) ? (bill * take) / 100 : NaN;
 
   return (
-    <div className="mx-auto max-w-xl space-y-6 animate-in">
+    <div className="mx-auto max-w-3xl space-y-6 animate-in">
       <div>
         <h1 className="inline-flex items-center gap-2 font-display text-2xl font-semibold">
           <Settings className="h-5 w-5 text-ink-muted" aria-hidden />
@@ -264,6 +265,8 @@ export default function SettingsPage() {
           </Button>
         </form>
       )}
+
+      <MarketplaceRulePacksPanel />
 
       <LegalDocumentsPanel />
     </div>
