@@ -137,7 +137,6 @@ export function ShiftForm({
       requiredQualification: "CNA",
       scheduleType: "ONE_OFF",
       clientRef: "",
-      state: DEFAULT_STATE,
       startTime: "09:00",
       endTime: "17:00",
       payRate: undefined,
