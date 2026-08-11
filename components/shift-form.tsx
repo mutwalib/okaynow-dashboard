@@ -131,7 +131,8 @@ export function ShiftForm({
     watch,
     formState: { errors, isSubmitting },
   } = useForm<ShiftFormValues>({
-    resolver: zodResolver(schema),
+    // zodResolver generics disagree with optional coerced number fields in this schema.
+    resolver: zodResolver(schema) as never,
     defaultValues: {
       requiredQualification: "CNA",
       scheduleType: "ONE_OFF",
