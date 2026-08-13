@@ -92,6 +92,8 @@ export interface UserResponse {
   phone: string | null;
   role: UserRole;
   status: UserStatus;
+  emailVerified?: boolean;
+  displayName?: string | null;
   createdAt: string;
 }
 

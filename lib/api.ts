@@ -22,6 +22,7 @@ import type {
   ScheduleDay,
   UserResponse,
   UserRole,
+  UserStatus,
   AgencySettings,
   ClientInvoice,
   FinanceSummary,
@@ -485,13 +486,6 @@ export function getAdminUsers(filters: UserFilters = {}) {
   );
 }
 
-export function updateUserStatus(id: string, status: string) {
-  return request<UserResponse>(`/api/admin/users/${id}/status`, {
-    method: "PATCH",
-    body: JSON.stringify({ status }),
-  });
-}
-
 export type OnboardingFieldType = "TEXT" | "FILE" | "PROFILE_PHOTO";
 export type OnboardingRequestStatus =
   | "OPEN"
@@ -509,6 +503,67 @@ export interface OnboardingRequestItem {
   fileUrl: string | null;
   createdAt: string;
   submittedAt: string | null;
+}
+
+export interface AdminUserReviewDetail {
+  id: string;
+  email: string;
+  phone: string | null;
+  role: UserRole;
+  status: UserStatus;
+  emailVerified: boolean;
+  emailVerifiedAt: string | null;
+  createdAt: string;
+  displayName: string;
+  pendingReview: boolean;
+  openKycRequests: number;
+  submittedKycRequests: number;
+  caregiver: {
+    profileId: string;
+    firstName: string;
+    lastName: string;
+    qualifications: string[];
+    hourlyRateMin: number | null;
+    hourlyRateMax: number | null;
+    serviceRadiusMiles: number | null;
+    homeLat: number | null;
+    homeLng: number | null;
+    profilePhotoUrl: string | null;
+  } | null;
+  client: {
+    profileId: string;
+    firstName: string;
+    lastName: string;
+    addressLine: string | null;
+    city: string | null;
+    state: string | null;
+    zip: string | null;
+    careNeeds: string | null;
+    registeringForSelf: boolean;
+    medicaidEligible: string | null;
+    relationshipToCareRecipient: string | null;
+  } | null;
+  credentials: {
+    id: string;
+    credentialType: string;
+    licenseNumber: string | null;
+    issueDate: string | null;
+    expiryDate: string | null;
+    documentUrl: string | null;
+    verificationStatus: string;
+  }[];
+  kycRequests: OnboardingRequestItem[];
+}
+
+export function getAdminUserReview(userId: string) {
+  return request<AdminUserReviewDetail>(`/api/admin/users/${userId}/review`);
+}
+
+export function updateUserStatus(id: string, status: string) {
+  return request<UserResponse>(`/api/admin/users/${id}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
 }
 
 export function getUserOnboardingRequests(userId: string) {

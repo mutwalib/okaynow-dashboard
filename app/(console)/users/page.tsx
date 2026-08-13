@@ -1,26 +1,40 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   approveUserReview,
   cancelOnboardingRequest,
   createOwner,
   createUserOnboardingRequest,
+  getAdminUserReview,
   getAdminUsers,
-  getUserOnboardingRequests,
   mediaUrl,
   updateUserStatus,
   type OnboardingFieldType,
 } from "@/lib/api";
 import type { UserRole, UserStatus } from "@/lib/types";
+import {
+  CARE_RECIPIENT_RELATIONSHIP_LABEL,
+  MEDICAID_ELIGIBILITY_LABEL,
+  type CareRecipientRelationship,
+  type MedicaidEligibility,
+} from "@/lib/types";
 import { ExportReportButtons } from "@/components/export-report-buttons";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/field";
 import { ListPagination } from "@/components/ui/list-pagination";
 import { useToast } from "@/lib/toast-context";
 import { useListPagination } from "@/lib/pagination";
-import { CheckCircle2, ClipboardList, UserCog, UserPlus, X } from "lucide-react";
+import {
+  CheckCircle2,
+  FileWarning,
+  IdCard,
+  ShieldAlert,
+  UserCog,
+  UserPlus,
+  X,
+} from "lucide-react";
 
 const ROLES: UserRole[] = ["CAREGIVER", "CLIENT", "FACILITY", "ADMIN"];
 const STATUSES: UserStatus[] = [
@@ -31,6 +45,83 @@ const STATUSES: UserStatus[] = [
   "DEACTIVATED",
 ];
 
+type KycPreset = {
+  label: string;
+  title: string;
+  instructions: string;
+  fieldType: OnboardingFieldType;
+  roles: UserRole[];
+};
+
+const KYC_PRESETS: KycPreset[] = [
+  {
+    label: "Profile photo",
+    title: "Profile photo",
+    instructions: "Upload a clear, recent photo of your face for your caregiver profile.",
+    fieldType: "PROFILE_PHOTO",
+    roles: ["CAREGIVER"],
+  },
+  {
+    label: "CORI clearance",
+    title: "CORI clearance document",
+    instructions: "Upload your current Massachusetts CORI clearance PDF or image.",
+    fieldType: "FILE",
+    roles: ["CAREGIVER"],
+  },
+  {
+    label: "SORI clearance",
+    title: "SORI clearance document",
+    instructions: "Upload your current Massachusetts SORI clearance PDF or image.",
+    fieldType: "FILE",
+    roles: ["CAREGIVER"],
+  },
+  {
+    label: "License / cert",
+    title: "Professional license or certification",
+    instructions: "Upload your CNA/HHA/PCA/LPN/RN license or certification showing number and expiry.",
+    fieldType: "FILE",
+    roles: ["CAREGIVER"],
+  },
+  {
+    label: "CPR / First aid",
+    title: "CPR or First Aid certificate",
+    instructions: "Upload a valid CPR and/or First Aid certificate.",
+    fieldType: "FILE",
+    roles: ["CAREGIVER"],
+  },
+  {
+    label: "Government ID",
+    title: "Government-issued photo ID",
+    instructions: "Upload a clear photo or scan of a government-issued photo ID.",
+    fieldType: "FILE",
+    roles: ["CAREGIVER", "CLIENT"],
+  },
+  {
+    label: "Proof of address",
+    title: "Proof of address",
+    instructions: "Upload a utility bill or official document showing your current Massachusetts address.",
+    fieldType: "FILE",
+    roles: ["CAREGIVER", "CLIENT"],
+  },
+  {
+    label: "Other (custom)",
+    title: "",
+    instructions: "",
+    fieldType: "FILE",
+    roles: ["CAREGIVER", "CLIENT"],
+  },
+];
+
+function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
+  if (value == null || value === "") return null;
+  return (
+    <div className="grid grid-cols-[9rem_1fr] gap-2 text-sm">
+      <dt className="text-ink-muted">{label}</dt>
+      <dd className="font-medium text-ink break-words">{value}</dd>
+    </div>
+  );
+}
+
 export default function UsersPage() {
   const [role, setRole] = useState<UserRole | "">("");
   const [status, setStatus] = useState<UserStatus | "">("PENDING_REVIEW");
@@ -39,8 +130,11 @@ export default function UsersPage() {
   const [ownerEmail, setOwnerEmail] = useState("");
   const [ownerPassword, setOwnerPassword] = useState("");
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [reqTitle, setReqTitle] = useState("");
-  const [reqInstructions, setReqInstructions] = useState("");
+  const [presetKey, setPresetKey] = useState("CORI clearance");
+  const [reqTitle, setReqTitle] = useState("CORI clearance document");
+  const [reqInstructions, setReqInstructions] = useState(
+    "Upload your current Massachusetts CORI clearance PDF or image.",
+  );
   const [reqType, setReqType] = useState<OnboardingFieldType>("FILE");
   const { page, setPage, pageSize, setPageSize } = useListPagination(
     `${role}|${status}|${search}`,
@@ -60,20 +154,24 @@ export default function UsersPage() {
       }),
   });
 
-  const selectedUser =
-    users.data?.content.find((u) => u.id === selectedUserId) ?? null;
-
-  const onboarding = useQuery({
-    queryKey: ["owner-onboarding", selectedUserId],
-    queryFn: () => getUserOnboardingRequests(selectedUserId!),
+  const review = useQuery({
+    queryKey: ["owner-user-review", selectedUserId],
+    queryFn: () => getAdminUserReview(selectedUserId!),
     enabled: !!selectedUserId,
   });
+
+  const availablePresets = useMemo(() => {
+    const r = review.data?.role;
+    if (!r) return KYC_PRESETS;
+    return KYC_PRESETS.filter((p) => p.roles.includes(r));
+  }, [review.data?.role]);
 
   const changeStatus = useMutation({
     mutationFn: ({ id, next }: { id: string; next: UserStatus }) =>
       updateUserStatus(id, next),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["owner-users"] });
+      queryClient.invalidateQueries({ queryKey: ["owner-user-review"] });
       showToast("User status updated", "success");
     },
     onError: (error: Error) => showToast(error.message, "error"),
@@ -83,8 +181,8 @@ export default function UsersPage() {
     mutationFn: (id: string) => approveUserReview(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["owner-users"] });
-      queryClient.invalidateQueries({ queryKey: ["owner-onboarding"] });
-      showToast("Account approved", "success");
+      queryClient.invalidateQueries({ queryKey: ["owner-user-review"] });
+      showToast("Account verified and activated", "success");
     },
     onError: (error: Error) => showToast(error.message, "error"),
   });
@@ -97,11 +195,9 @@ export default function UsersPage() {
         fieldType: reqType,
       }),
     onSuccess: () => {
-      setReqTitle("");
-      setReqInstructions("");
-      queryClient.invalidateQueries({ queryKey: ["owner-onboarding"] });
+      queryClient.invalidateQueries({ queryKey: ["owner-user-review"] });
       queryClient.invalidateQueries({ queryKey: ["owner-users"] });
-      showToast("Information requested", "success");
+      showToast("KYC request sent to the applicant", "success");
     },
     onError: (error: Error) => showToast(error.message, "error"),
   });
@@ -109,8 +205,8 @@ export default function UsersPage() {
   const cancelReq = useMutation({
     mutationFn: (id: string) => cancelOnboardingRequest(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["owner-onboarding"] });
-      showToast("Request cancelled", "success");
+      queryClient.invalidateQueries({ queryKey: ["owner-user-review"] });
+      showToast("KYC request cancelled", "success");
     },
     onError: (error: Error) => showToast(error.message, "error"),
   });
@@ -128,10 +224,34 @@ export default function UsersPage() {
     onError: (error: Error) => showToast(error.message, "error"),
   });
 
+  function applyPreset(label: string) {
+    setPresetKey(label);
+    const preset = KYC_PRESETS.find((p) => p.label === label);
+    if (!preset) return;
+    if (preset.title) setReqTitle(preset.title);
+    if (preset.instructions) setReqInstructions(preset.instructions);
+    setReqType(preset.fieldType);
+  }
+
+  function selectUser(id: string, userRole: UserRole) {
+    setSelectedUserId(id);
+    const first =
+      KYC_PRESETS.find((p) => p.roles.includes(userRole) && p.label !== "Other (custom)") ??
+      KYC_PRESETS[0];
+    applyPreset(first.label);
+  }
+
   function submitOwner(event: FormEvent) {
     event.preventDefault();
     addOwner.mutate();
   }
+
+  const detail = review.data;
+  const canApprove =
+    detail &&
+    detail.pendingReview &&
+    (detail.role === "CAREGIVER" || detail.role === "CLIENT") &&
+    detail.openKycRequests === 0;
 
   return (
     <div className="space-y-4 animate-in">
@@ -139,10 +259,11 @@ export default function UsersPage() {
         <div>
           <h1 className="inline-flex items-center gap-2 font-display text-2xl font-semibold">
             <UserCog className="h-5 w-5 text-ink-muted" aria-hidden />
-            Users
+            Users & KYC review
           </h1>
           <p className="mt-1 text-sm text-ink-muted">
-            Review pending caregivers/clients, request documents, and manage access.
+            Open an applicant to see their full profile, review submitted documents,
+            request more KYC, and approve verification.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -228,7 +349,7 @@ export default function UsersPage() {
         </Select>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
+      <div className="grid gap-4 xl:grid-cols-[1fr_1.15fr]">
         <div>
           {users.isLoading ? (
             <p className="text-sm text-ink-muted">Loading users…</p>
@@ -243,7 +364,7 @@ export default function UsersPage() {
               <table className="table-dense w-full min-w-[760px]">
                 <thead>
                   <tr>
-                    <th>Email</th>
+                    <th>Applicant</th>
                     <th>Role</th>
                     <th>Status</th>
                     <th>Created</th>
@@ -262,10 +383,11 @@ export default function UsersPage() {
                         <button
                           type="button"
                           className="text-left font-medium text-brand-deep hover:underline"
-                          onClick={() => setSelectedUserId(user.id)}
+                          onClick={() => selectUser(user.id, user.role)}
                         >
-                          {user.email}
+                          {user.displayName || user.email}
                         </button>
+                        <div className="text-[11px] text-ink-muted">{user.email}</div>
                         {user.phone ? (
                           <div className="text-[11px] text-ink-muted">
                             {user.phone}
@@ -326,85 +448,235 @@ export default function UsersPage() {
         </div>
 
         <div className="rounded border border-line bg-panel p-4">
-          {!selectedUser ? (
-            <p className="text-sm text-ink-muted">
-              Select a caregiver or client to request documents or approve review.
+          {!selectedUserId ? (
+            <div className="flex min-h-64 flex-col items-center justify-center gap-2 text-center">
+              <IdCard className="h-8 w-8 text-ink-muted" aria-hidden />
+              <p className="text-sm font-medium text-ink">Select an applicant</p>
+              <p className="max-w-sm text-sm text-ink-muted">
+                Click a caregiver or client in the list to open their verification dossier,
+                review KYC submissions, and request more documents.
+              </p>
+            </div>
+          ) : review.isLoading ? (
+            <p className="text-sm text-ink-muted">Loading applicant details…</p>
+          ) : review.isError ? (
+            <p className="text-sm text-danger">
+              {review.error instanceof Error
+                ? review.error.message
+                : "Could not load review details"}
             </p>
-          ) : (
-            <div className="space-y-4">
-              <div>
-                <h2 className="inline-flex items-center gap-2 font-display text-lg font-semibold">
-                  <ClipboardList className="h-4 w-4 text-ink-muted" aria-hidden />
-                  Review workspace
-                </h2>
-                <p className="mt-1 text-sm text-ink-muted">{selectedUser.email}</p>
-                <p className="font-mono text-xs text-ink-muted">
-                  {selectedUser.role} · {selectedUser.status}
-                </p>
+          ) : detail ? (
+            <div className="space-y-5">
+              <div className="space-y-2 border-b border-line pb-4">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                      Account verification / KYC
+                    </p>
+                    <h2 className="font-display text-xl font-semibold">
+                      {detail.displayName}
+                    </h2>
+                    <p className="text-sm text-ink-muted">{detail.email}</p>
+                  </div>
+                  <span className="rounded bg-surface px-2 py-1 font-mono text-[10px] font-semibold">
+                    {detail.status}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <span className="rounded border border-line px-2 py-1">
+                    Role: {detail.role}
+                  </span>
+                  <span className="rounded border border-line px-2 py-1">
+                    Email: {detail.emailVerified ? "Verified" : "Not verified"}
+                  </span>
+                  <span className="rounded border border-line px-2 py-1">
+                    Open KYC: {detail.openKycRequests}
+                  </span>
+                  <span className="rounded border border-line px-2 py-1">
+                    Submitted KYC: {detail.submittedKycRequests}
+                  </span>
+                </div>
               </div>
 
-              {(selectedUser.role === "CAREGIVER" ||
-                selectedUser.role === "CLIENT") &&
-              selectedUser.status === "PENDING_REVIEW" ? (
-                <Button
-                  type="button"
-                  disabled={approve.isPending}
-                  onClick={() => approve.mutate(selectedUser.id)}
-                >
-                  <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
-                  {approve.isPending ? "Approving…" : "Approve account"}
-                </Button>
+              <section className="space-y-2">
+                <h3 className="text-sm font-semibold">Applicant details</h3>
+                <dl className="space-y-1.5 rounded border border-line bg-surface p-3">
+                  <DetailRow label="Phone" value={detail.phone} />
+                  <DetailRow
+                    label="Registered"
+                    value={new Date(detail.createdAt).toLocaleString()}
+                  />
+                  {detail.emailVerifiedAt ? (
+                    <DetailRow
+                      label="Email verified"
+                      value={new Date(detail.emailVerifiedAt).toLocaleString()}
+                    />
+                  ) : null}
+
+                  {detail.caregiver ? (
+                    <>
+                      <DetailRow
+                        label="Name"
+                        value={`${detail.caregiver.firstName} ${detail.caregiver.lastName}`}
+                      />
+                      <DetailRow
+                        label="Qualifications"
+                        value={
+                          detail.caregiver.qualifications?.length
+                            ? detail.caregiver.qualifications.join(", ")
+                            : "None set"
+                        }
+                      />
+                      <DetailRow
+                        label="Pay range"
+                        value={
+                          detail.caregiver.hourlyRateMin != null ||
+                          detail.caregiver.hourlyRateMax != null
+                            ? `$${detail.caregiver.hourlyRateMin ?? "—"} – $${detail.caregiver.hourlyRateMax ?? "—"} /hr`
+                            : "Not set"
+                        }
+                      />
+                      <DetailRow
+                        label="Service radius"
+                        value={
+                          detail.caregiver.serviceRadiusMiles != null
+                            ? `${detail.caregiver.serviceRadiusMiles} mi`
+                            : "Not set"
+                        }
+                      />
+                      <DetailRow
+                        label="Home location"
+                        value={
+                          detail.caregiver.homeLat != null &&
+                          detail.caregiver.homeLng != null
+                            ? `${detail.caregiver.homeLat.toFixed(5)}, ${detail.caregiver.homeLng.toFixed(5)}`
+                            : "Not set"
+                        }
+                      />
+                      {detail.caregiver.profilePhotoUrl ? (
+                        <div className="pt-2">
+                          <p className="mb-2 text-xs text-ink-muted">Profile photo</p>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={
+                              mediaUrl(detail.caregiver.profilePhotoUrl) ??
+                              detail.caregiver.profilePhotoUrl
+                            }
+                            alt="Applicant profile"
+                            className="h-24 w-24 rounded-full border border-line object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <DetailRow label="Profile photo" value="Not uploaded yet" />
+                      )}
+                    </>
+                  ) : null}
+
+                  {detail.client ? (
+                    <>
+                      <DetailRow
+                        label="Name"
+                        value={`${detail.client.firstName} ${detail.client.lastName}`}
+                      />
+                      <DetailRow
+                        label="Address"
+                        value={[
+                          detail.client.addressLine,
+                          detail.client.city,
+                          detail.client.state,
+                          detail.client.zip,
+                        ]
+                          .filter(Boolean)
+                          .join(", ") || "Not set"}
+                      />
+                      <DetailRow
+                        label="Registering for"
+                        value={
+                          detail.client.registeringForSelf
+                            ? "Self"
+                            : "Someone else"
+                        }
+                      />
+                      {detail.client.medicaidEligible ? (
+                        <DetailRow
+                          label="Medicaid"
+                          value={
+                            MEDICAID_ELIGIBILITY_LABEL[
+                              detail.client.medicaidEligible as MedicaidEligibility
+                            ] ?? detail.client.medicaidEligible
+                          }
+                        />
+                      ) : null}
+                      {detail.client.relationshipToCareRecipient ? (
+                        <DetailRow
+                          label="Relationship"
+                          value={
+                            CARE_RECIPIENT_RELATIONSHIP_LABEL[
+                              detail.client
+                                .relationshipToCareRecipient as CareRecipientRelationship
+                            ] ?? detail.client.relationshipToCareRecipient
+                          }
+                        />
+                      ) : null}
+                      <DetailRow
+                        label="Care needs"
+                        value={detail.client.careNeeds || "Not provided"}
+                      />
+                    </>
+                  ) : null}
+                </dl>
+              </section>
+
+              {detail.credentials.length > 0 ? (
+                <section className="space-y-2">
+                  <h3 className="text-sm font-semibold">Credential vault</h3>
+                  <div className="space-y-2">
+                    {detail.credentials.map((cred) => (
+                      <div
+                        key={cred.id}
+                        className="rounded border border-line bg-surface p-3 text-sm"
+                      >
+                        <p className="font-medium">
+                          {cred.credentialType} · {cred.verificationStatus}
+                        </p>
+                        {cred.licenseNumber ? (
+                          <p className="text-xs text-ink-muted">
+                            License #: {cred.licenseNumber}
+                          </p>
+                        ) : null}
+                        {cred.expiryDate ? (
+                          <p className="text-xs text-ink-muted">
+                            Expires: {cred.expiryDate}
+                          </p>
+                        ) : null}
+                        {cred.documentUrl ? (
+                          <a
+                            href={mediaUrl(cred.documentUrl) ?? cred.documentUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-1 inline-block text-xs font-medium text-brand-deep underline"
+                          >
+                            View document
+                          </a>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </section>
               ) : null}
 
-              {(selectedUser.role === "CAREGIVER" ||
-                selectedUser.role === "CLIENT") && (
-                <form
-                  className="space-y-2 rounded border border-line bg-surface p-3"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    createRequest.mutate();
-                  }}
-                >
-                  <p className="text-sm font-medium">Request information</p>
-                  <Input
-                    required
-                    placeholder="Title (e.g. CORI clearance PDF)"
-                    value={reqTitle}
-                    onChange={(e) => setReqTitle(e.target.value)}
-                  />
-                  <Textarea
-                    rows={3}
-                    placeholder="Instructions for the user"
-                    value={reqInstructions}
-                    onChange={(e) => setReqInstructions(e.target.value)}
-                  />
-                  <Select
-                    value={reqType}
-                    onChange={(e) =>
-                      setReqType(e.target.value as OnboardingFieldType)
-                    }
-                  >
-                    <option value="FILE">File upload</option>
-                    <option value="TEXT">Text response</option>
-                    {selectedUser.role === "CAREGIVER" ? (
-                      <option value="PROFILE_PHOTO">Profile photo</option>
-                    ) : null}
-                  </Select>
-                  <Button type="submit" disabled={createRequest.isPending}>
-                    {createRequest.isPending ? "Sending…" : "Send request"}
-                  </Button>
-                </form>
-              )}
-
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Requests</p>
-                {onboarding.isLoading ? (
-                  <p className="text-xs text-ink-muted">Loading…</p>
-                ) : null}
-                {(onboarding.data ?? []).length === 0 ? (
-                  <p className="text-xs text-ink-muted">No onboarding requests yet.</p>
+              <section className="space-y-2">
+                <h3 className="inline-flex items-center gap-2 text-sm font-semibold">
+                  <FileWarning className="h-4 w-4 text-ink-muted" aria-hidden />
+                  KYC requests & submissions
+                </h3>
+                {detail.kycRequests.length === 0 ? (
+                  <p className="rounded border border-dashed border-line bg-surface p-3 text-sm text-ink-muted">
+                    No KYC items yet. Use “Request more KYC” below if you need documents
+                    before approving.
+                  </p>
                 ) : (
-                  (onboarding.data ?? []).map((req) => (
+                  detail.kycRequests.map((req) => (
                     <div
                       key={req.id}
                       className="rounded border border-line bg-surface p-3 text-sm"
@@ -414,7 +686,15 @@ export default function UsersPage() {
                           <p className="font-medium">{req.title}</p>
                           <p className="text-xs text-ink-muted">
                             {req.fieldType} · {req.status}
+                            {req.submittedAt
+                              ? ` · submitted ${new Date(req.submittedAt).toLocaleString()}`
+                              : ""}
                           </p>
+                          {req.instructions ? (
+                            <p className="mt-1 text-xs text-ink-muted">
+                              {req.instructions}
+                            </p>
+                          ) : null}
                         </div>
                         {(req.status === "OPEN" || req.status === "SUBMITTED") && (
                           <Button
@@ -427,8 +707,13 @@ export default function UsersPage() {
                           </Button>
                         )}
                       </div>
+                      {req.status === "OPEN" ? (
+                        <p className="mt-2 text-xs font-medium text-amber-700">
+                          Waiting on applicant
+                        </p>
+                      ) : null}
                       {req.responseText ? (
-                        <p className="mt-2 whitespace-pre-wrap text-ink-muted">
+                        <p className="mt-2 whitespace-pre-wrap rounded bg-panel p-2 text-ink">
                           {req.responseText}
                         </p>
                       ) : null}
@@ -439,15 +724,111 @@ export default function UsersPage() {
                           rel="noreferrer"
                           className="mt-2 inline-block text-xs font-medium text-brand-deep underline"
                         >
-                          View uploaded file
+                          View uploaded KYC file
                         </a>
                       ) : null}
                     </div>
                   ))
                 )}
-              </div>
+              </section>
+
+              {(detail.role === "CAREGIVER" || detail.role === "CLIENT") && (
+                <section className="space-y-3 rounded border border-accent/40 bg-surface p-3">
+                  <div>
+                    <h3 className="inline-flex items-center gap-2 text-sm font-semibold">
+                      <ShieldAlert className="h-4 w-4 text-accent" aria-hidden />
+                      Request more KYC
+                    </h3>
+                    <p className="mt-1 text-xs text-ink-muted">
+                      This sends a required item to the applicant’s pending-review screen.
+                      They cannot use the platform until you approve them.
+                    </p>
+                  </div>
+                  <form
+                    className="space-y-2"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      createRequest.mutate();
+                    }}
+                  >
+                    <Select
+                      value={presetKey}
+                      onChange={(e) => applyPreset(e.target.value)}
+                    >
+                      {availablePresets.map((preset) => (
+                        <option key={preset.label} value={preset.label}>
+                          {preset.label}
+                        </option>
+                      ))}
+                    </Select>
+                    <Input
+                      required
+                      placeholder="KYC request title"
+                      value={reqTitle}
+                      onChange={(e) => setReqTitle(e.target.value)}
+                    />
+                    <Textarea
+                      rows={3}
+                      placeholder="Instructions the applicant will see"
+                      value={reqInstructions}
+                      onChange={(e) => setReqInstructions(e.target.value)}
+                    />
+                    <Select
+                      value={reqType}
+                      onChange={(e) =>
+                        setReqType(e.target.value as OnboardingFieldType)
+                      }
+                    >
+                      <option value="FILE">File upload (PDF/image)</option>
+                      <option value="TEXT">Text response</option>
+                      {detail.role === "CAREGIVER" ? (
+                        <option value="PROFILE_PHOTO">Profile photo</option>
+                      ) : null}
+                    </Select>
+                    <Button type="submit" disabled={createRequest.isPending}>
+                      {createRequest.isPending
+                        ? "Sending KYC request…"
+                        : "Send KYC request to applicant"}
+                    </Button>
+                  </form>
+                </section>
+              )}
+
+              {detail.pendingReview ? (
+                <section className="space-y-2 rounded border border-line p-3">
+                  <h3 className="text-sm font-semibold">Approve verification</h3>
+                  {detail.openKycRequests > 0 ? (
+                    <p className="text-sm text-amber-700">
+                      {detail.openKycRequests} KYC request
+                      {detail.openKycRequests === 1 ? " is" : "s are"} still open.
+                      Wait for the applicant to submit, or cancel open requests before
+                      approving.
+                    </p>
+                  ) : (
+                    <p className="text-sm text-ink-muted">
+                      All open KYC items are cleared. Approving activates this account
+                      and unlocks the full platform for the applicant.
+                    </p>
+                  )}
+                  <Button
+                    type="button"
+                    disabled={!canApprove || approve.isPending}
+                    onClick={() => approve.mutate(detail.id)}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+                    {approve.isPending
+                      ? "Approving…"
+                      : "Approve & activate account"}
+                  </Button>
+                </section>
+              ) : (
+                <p className="text-sm text-ink-muted">
+                  This account is not in pending review. You can still request KYC,
+                  which will move them back to PENDING_REVIEW.
+                </p>
+              )}
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     </div>
