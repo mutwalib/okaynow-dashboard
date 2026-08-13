@@ -545,12 +545,22 @@ export default function UsersPage() {
                         }
                       />
                       <DetailRow
-                        label="Home location"
+                        label="Home address"
                         value={
-                          detail.caregiver.homeLat != null &&
-                          detail.caregiver.homeLng != null
-                            ? `${detail.caregiver.homeLat.toFixed(5)}, ${detail.caregiver.homeLng.toFixed(5)}`
-                            : "Not set"
+                          detail.caregiver.homeAddressLine
+                            ? [
+                                detail.caregiver.homeAddressLine,
+                                [detail.caregiver.homeCity, detail.caregiver.homeState]
+                                  .filter(Boolean)
+                                  .join(", "),
+                                detail.caregiver.homeZip,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")
+                            : detail.caregiver.homeLat != null &&
+                                detail.caregiver.homeLng != null
+                              ? `${detail.caregiver.homeLat.toFixed(5)}, ${detail.caregiver.homeLng.toFixed(5)}`
+                              : "Not set"
                         }
                       />
                       {detail.caregiver.profilePhotoUrl ? (
