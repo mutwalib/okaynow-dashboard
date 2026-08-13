@@ -63,3 +63,7 @@ export function getRefreshToken(): string | null {
 export function setAccessToken(token: string) {
   localStorage.setItem(ACCESS_TOKEN_KEY, token);
 }
+
+export function setRefreshToken(token: string) {
+  localStorage.setItem(REFRESH_TOKEN_KEY, token);
+}

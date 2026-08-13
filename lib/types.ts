@@ -30,6 +30,7 @@ export type ClaimStatus =
 
 export type UserStatus =
   | "PENDING_VERIFICATION"
+  | "PENDING_REVIEW"
   | "ACTIVE"
   | "SUSPENDED"
   | "DEACTIVATED";

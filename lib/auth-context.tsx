@@ -14,13 +14,20 @@ import {
   getStoredAuthUser,
   setAuthSession,
 } from "./auth-cookie";
-import { ApiError, loginUser, type LoginPayload } from "./api";
+import {
+  ApiError,
+  loginUser,
+  verifyLoginOtp,
+  type LoginPayload,
+} from "./api";
 
 interface AuthContextValue {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (payload: LoginPayload) => Promise<AuthUser>;
+  /** Password step — may require OTP next. Returns true when OTP is required. */
+  beginLogin: (payload: LoginPayload) => Promise<{ requiresOtp: boolean; email: string }>;
+  completeLoginOtp: (email: string, code: string) => Promise<AuthUser>;
   logout: () => void;
 }
 
@@ -50,24 +57,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(false);
   }, []);
 
-  const login = useCallback(async (payload: LoginPayload) => {
+  const persistAdmin = useCallback(
+    (data: {
+      userId: string;
+      email: string;
+      role: UserRole;
+      accessToken: string;
+      refreshToken: string;
+      expiresInSeconds: number;
+    }) => {
+      if (data.role !== "ADMIN") {
+        clearAuthSession();
+        throw new ApiError(
+          "Access denied. This console is for platform owners (ADMIN) only.",
+          403,
+        );
+      }
+      const next = toUser(data);
+      setAuthSession(next, {
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+        expiresInSeconds: data.expiresInSeconds,
+      });
+      setUser(next);
+      return next;
+    },
+    [],
+  );
+
+  const beginLogin = useCallback(async (payload: LoginPayload) => {
     const data = await loginUser(payload);
-    if (data.role !== "ADMIN") {
-      clearAuthSession();
-      throw new ApiError(
-        "Access denied. This console is for platform owners (ADMIN) only.",
-        403,
-      );
+    if (data.requiresOtp) {
+      return { requiresOtp: true, email: data.email };
     }
-    const next = toUser(data);
-    setAuthSession(next, {
+    if (!data.accessToken || !data.refreshToken || !data.userId || !data.role) {
+      throw new ApiError(data.message || "Sign-in failed", 400);
+    }
+    persistAdmin({
+      userId: data.userId,
+      email: data.email,
+      role: data.role,
       accessToken: data.accessToken,
       refreshToken: data.refreshToken,
-      expiresInSeconds: data.expiresInSeconds,
+      expiresInSeconds: data.expiresInSeconds ?? 900,
     });
-    setUser(next);
-    return next;
-  }, []);
+    return { requiresOtp: false, email: data.email };
+  }, [persistAdmin]);
+
+  const completeLoginOtp = useCallback(
+    async (email: string, code: string) => {
+      const data = await verifyLoginOtp(email, code);
+      return persistAdmin(data);
+    },
+    [persistAdmin],
+  );
 
   const logout = useCallback(() => {
     clearAuthSession();
@@ -81,7 +124,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         isAuthenticated: !!user && user.role === "ADMIN",
         isLoading,
-        login,
+        beginLogin,
+        completeLoginOtp,
         logout,
       }}
     >

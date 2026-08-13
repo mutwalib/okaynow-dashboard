@@ -1,7 +1,8 @@
 "use client";
 
 import { Client, type IMessage, type StompSubscription } from "@stomp/stompjs";
-import { getAccessToken } from "./auth-cookie";
+import { ensureFreshAccessToken } from "./api";
+import { clearAuthSession } from "./auth-cookie";
 import type { AppNotification, ShiftBoardUpdate } from "./types";
 
 const API_BASE_URL =
@@ -24,17 +25,25 @@ export type RealtimeHandlers = {
 export function createRealtimeClient(handlers: RealtimeHandlers) {
   let shiftSub: StompSubscription | null = null;
   let notifSub: StompSubscription | null = null;
+  let stopped = false;
 
   const client = new Client({
     brokerURL: brokerUrl(),
     reconnectDelay: 4000,
     heartbeatIncoming: 10000,
     heartbeatOutgoing: 10000,
-    beforeConnect: () => {
-      const token = getAccessToken();
-      client.connectHeaders = token
-        ? { Authorization: `Bearer ${token}` }
-        : {};
+    beforeConnect: async () => {
+      const token = await ensureFreshAccessToken({ force: true });
+      if (!token) {
+        stopped = true;
+        client.reconnectDelay = 0;
+        client.connectHeaders = {};
+        void client.deactivate();
+        handlers.onDisconnected?.();
+        clearAuthSession();
+        return;
+      }
+      client.connectHeaders = { Authorization: `Bearer ${token}` };
     },
     onConnect: () => {
       handlers.onConnected?.();
@@ -63,18 +72,31 @@ export function createRealtimeClient(handlers: RealtimeHandlers) {
     },
     onStompError: () => {
       handlers.onDisconnected?.();
+      stopped = true;
+      client.reconnectDelay = 0;
+      void client.deactivate();
     },
     onWebSocketClose: () => {
-      handlers.onDisconnected?.();
+      if (!stopped) handlers.onDisconnected?.();
     },
   });
 
   return {
     activate() {
-      if (!getAccessToken()) return;
-      if (!client.active) client.activate();
+      stopped = false;
+      client.reconnectDelay = 4000;
+      void (async () => {
+        const token = await ensureFreshAccessToken({ force: true });
+        if (!token || stopped) {
+          handlers.onDisconnected?.();
+          return;
+        }
+        client.connectHeaders = { Authorization: `Bearer ${token}` };
+        if (!client.active) client.activate();
+      })();
     },
     deactivate() {
+      stopped = true;
       shiftSub?.unsubscribe();
       notifSub?.unsubscribe();
       shiftSub = null;

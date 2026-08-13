@@ -2,6 +2,7 @@ import {
   getAccessToken,
   getRefreshToken,
   setAccessToken,
+  setRefreshToken,
   clearAuthSession,
 } from "./auth-cookie";
 import type {
@@ -58,6 +59,22 @@ export interface BackendAuthResponse {
 export interface LoginPayload {
   email: string;
   password: string;
+}
+
+export interface LoginResult {
+  requiresOtp: boolean;
+  email: string;
+  message?: string | null;
+  accessToken?: string | null;
+  refreshToken?: string | null;
+  tokenType?: string | null;
+  expiresInSeconds?: number | null;
+  userId?: string | null;
+  role?: UserRole | null;
+}
+
+export interface MessageResponse {
+  message: string;
 }
 
 export interface CreateShiftPayload {
@@ -130,6 +147,25 @@ export interface ClaimFilters {
 
 let refreshPromise: Promise<string | null> | null = null;
 
+function decodeJwtPayload(token: string): { exp?: number } | null {
+  try {
+    const part = token.split(".")[1];
+    if (!part || typeof atob !== "function") return null;
+    const padded =
+      part.replace(/-/g, "+").replace(/_/g, "/") +
+      "=".repeat((4 - (part.length % 4)) % 4);
+    return JSON.parse(atob(padded)) as { exp?: number };
+  } catch {
+    return null;
+  }
+}
+
+function accessTokenExpiresSoon(token: string, skewSeconds = 90): boolean {
+  const payload = decodeJwtPayload(token);
+  if (!payload || typeof payload.exp !== "number") return true;
+  return payload.exp * 1000 < Date.now() + skewSeconds * 1000;
+}
+
 async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = getRefreshToken();
   if (!refreshToken) return null;
@@ -148,6 +184,7 @@ async function refreshAccessToken(): Promise<string | null> {
         }
         const data = (await res.json()) as BackendAuthResponse;
         setAccessToken(data.accessToken);
+        if (data.refreshToken) setRefreshToken(data.refreshToken);
         return data.accessToken;
       } catch {
         clearAuthSession();
@@ -158,6 +195,21 @@ async function refreshAccessToken(): Promise<string | null> {
     })();
   }
   return refreshPromise;
+}
+
+/** Never returns an expired access JWT (avoids STOMP reconnect storms). */
+export async function ensureFreshAccessToken(
+  options: { force?: boolean } = {},
+): Promise<string | null> {
+  const current = getAccessToken();
+  if (!options.force && current && !accessTokenExpiresSoon(current)) {
+    return current;
+  }
+  const refreshed = await refreshAccessToken();
+  if (refreshed && !accessTokenExpiresSoon(refreshed, 0)) {
+    return refreshed;
+  }
+  return null;
 }
 
 async function request<T>(
@@ -206,9 +258,37 @@ async function request<T>(
 // --- auth ---
 
 export function loginUser(payload: LoginPayload) {
-  return request<BackendAuthResponse>("/api/auth/login", {
+  return request<LoginResult>("/api/auth/login", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+export function verifyLoginOtp(email: string, code: string) {
+  return request<BackendAuthResponse>("/api/auth/verify-login-otp", {
+    method: "POST",
+    body: JSON.stringify({ email, code }),
+  });
+}
+
+export function resendLoginOtp(email: string) {
+  return request<MessageResponse>("/api/auth/resend-login-otp", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export function forgotPassword(email: string) {
+  return request<MessageResponse>("/api/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export function resetPassword(email: string, code: string, newPassword: string) {
+  return request<MessageResponse>("/api/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ email, code, newPassword }),
   });
 }
 
@@ -410,6 +490,68 @@ export function updateUserStatus(id: string, status: string) {
     method: "PATCH",
     body: JSON.stringify({ status }),
   });
+}
+
+export type OnboardingFieldType = "TEXT" | "FILE" | "PROFILE_PHOTO";
+export type OnboardingRequestStatus =
+  | "OPEN"
+  | "SUBMITTED"
+  | "ACCEPTED"
+  | "CANCELLED";
+
+export interface OnboardingRequestItem {
+  id: string;
+  title: string;
+  instructions: string | null;
+  fieldType: OnboardingFieldType;
+  status: OnboardingRequestStatus;
+  responseText: string | null;
+  fileUrl: string | null;
+  createdAt: string;
+  submittedAt: string | null;
+}
+
+export function getUserOnboardingRequests(userId: string) {
+  return request<OnboardingRequestItem[]>(
+    `/api/admin/users/${userId}/onboarding-requests`,
+  );
+}
+
+export function createUserOnboardingRequest(
+  userId: string,
+  payload: {
+    title: string;
+    instructions?: string;
+    fieldType: OnboardingFieldType;
+  },
+) {
+  return request<OnboardingRequestItem>(
+    `/api/admin/users/${userId}/onboarding-requests`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function approveUserReview(userId: string) {
+  return request<{ message: string }>(
+    `/api/admin/users/${userId}/approve-review`,
+    { method: "POST" },
+  );
+}
+
+export function cancelOnboardingRequest(requestId: string) {
+  return request<OnboardingRequestItem>(
+    `/api/admin/onboarding-requests/${requestId}/cancel`,
+    { method: "POST" },
+  );
+}
+
+export function mediaUrl(path: string | null | undefined): string | null {
+  if (!path) return null;
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  return `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
 export function createOwner(payload: {
