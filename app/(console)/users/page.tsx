@@ -10,6 +10,7 @@ import {
   getAdminUserReview,
   getAdminUsers,
   mediaUrl,
+  requestOnboardingResubmit,
   updateUserStatus,
   type OnboardingFieldType,
 } from "@/lib/api";
@@ -207,6 +208,16 @@ export default function UsersPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["owner-user-review"] });
       showToast("KYC request cancelled", "success");
+    },
+    onError: (error: Error) => showToast(error.message, "error"),
+  });
+
+  const resubmitReq = useMutation({
+    mutationFn: (id: string) => requestOnboardingResubmit(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["owner-user-review"] });
+      queryClient.invalidateQueries({ queryKey: ["owner-users"] });
+      showToast("Applicant asked to resubmit this item", "success");
     },
     onError: (error: Error) => showToast(error.message, "error"),
   });
@@ -706,16 +717,31 @@ export default function UsersPage() {
                             </p>
                           ) : null}
                         </div>
-                        {(req.status === "OPEN" || req.status === "SUBMITTED") && (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => cancelReq.mutate(req.id)}
-                          >
-                            Cancel
-                          </Button>
-                        )}
+                        <div className="flex flex-wrap gap-1">
+                          {(req.status === "SUBMITTED" ||
+                            req.status === "ACCEPTED") && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => resubmitReq.mutate(req.id)}
+                              disabled={resubmitReq.isPending}
+                            >
+                              Ask to resubmit
+                            </Button>
+                          )}
+                          {(req.status === "OPEN" ||
+                            req.status === "SUBMITTED") && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => cancelReq.mutate(req.id)}
+                            >
+                              Cancel
+                            </Button>
+                          )}
+                        </div>
                       </div>
                       {req.status === "OPEN" ? (
                         <p className="mt-2 text-xs font-medium text-amber-700">

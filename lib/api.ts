@@ -607,6 +607,13 @@ export function cancelOnboardingRequest(requestId: string) {
   );
 }
 
+export function requestOnboardingResubmit(requestId: string) {
+  return request<OnboardingRequestItem>(
+    `/api/admin/onboarding-requests/${requestId}/request-resubmit`,
+    { method: "POST" },
+  );
+}
+
 export function mediaUrl(path: string | null | undefined): string | null {
   if (!path) return null;
   if (path.startsWith("http://") || path.startsWith("https://")) return path;
