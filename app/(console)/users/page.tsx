@@ -11,6 +11,7 @@ import {
   getAdminUsers,
   mediaUrl,
   requestOnboardingResubmit,
+  correctUserLegalName,
   updateUserStatus,
   type OnboardingFieldType,
 } from "@/lib/api";
@@ -79,7 +80,7 @@ const KYC_PRESETS: KycPreset[] = [
   {
     label: "License / cert",
     title: "Professional license or certification",
-    instructions: "Upload your CNA/HHA/PCA/LPN/RN license or certification showing number and expiry.",
+    instructions: "Upload your CNA/HHA/PCA/LPN/RN/MAP license or certification showing number and expiry.",
     fieldType: "FILE",
     roles: ["CAREGIVER"],
   },
@@ -131,6 +132,9 @@ export default function UsersPage() {
   const [ownerEmail, setOwnerEmail] = useState("");
   const [ownerPassword, setOwnerPassword] = useState("");
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [nameFirst, setNameFirst] = useState("");
+  const [nameLast, setNameLast] = useState("");
+  const [editingName, setEditingName] = useState(false);
   const [presetKey, setPresetKey] = useState("CORI clearance");
   const [reqTitle, setReqTitle] = useState("CORI clearance document");
   const [reqInstructions, setReqInstructions] = useState(
@@ -161,6 +165,7 @@ export default function UsersPage() {
     enabled: !!selectedUserId,
   });
 
+
   const availablePresets = useMemo(() => {
     const r = review.data?.role;
     if (!r) return KYC_PRESETS;
@@ -174,6 +179,21 @@ export default function UsersPage() {
       queryClient.invalidateQueries({ queryKey: ["owner-users"] });
       queryClient.invalidateQueries({ queryKey: ["owner-user-review"] });
       showToast("User status updated", "success");
+    },
+    onError: (error: Error) => showToast(error.message, "error"),
+  });
+
+  const correctName = useMutation({
+    mutationFn: () =>
+      correctUserLegalName(selectedUserId!, {
+        firstName: nameFirst.trim(),
+        lastName: nameLast.trim(),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["owner-user-review"] });
+      queryClient.invalidateQueries({ queryKey: ["owner-users"] });
+      setEditingName(false);
+      showToast("Legal name updated", "success");
     },
     onError: (error: Error) => showToast(error.message, "error"),
   });
@@ -530,6 +550,77 @@ export default function UsersPage() {
                         label="Name"
                         value={`${detail.caregiver.firstName} ${detail.caregiver.lastName}`}
                       />
+
+                      <div className="space-y-2 border-t border-line pt-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-medium text-ink-muted">Legal name</p>
+                          {!editingName ? (
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => {
+                                setNameFirst(
+                                  detail.caregiver?.firstName ??
+                                    detail.client?.firstName ??
+                                    "",
+                                );
+                                setNameLast(
+                                  detail.caregiver?.lastName ??
+                                    detail.client?.lastName ??
+                                    "",
+                                );
+                                setEditingName(true);
+                              }}
+                            >
+                              Correct name
+                            </Button>
+                          ) : null}
+                        </div>
+                        {editingName ? (
+                          <div className="space-y-2 rounded border border-line bg-paper p-3">
+                            <p className="text-xs text-ink-muted">
+                              Use only when the applicant requested a correction.
+                              Users cannot change legal names themselves.
+                            </p>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              <Input
+                                value={nameFirst}
+                                onChange={(e) => setNameFirst(e.target.value)}
+                                placeholder="First name"
+                              />
+                              <Input
+                                value={nameLast}
+                                onChange={(e) => setNameLast(e.target.value)}
+                                placeholder="Last name"
+                              />
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                className="h-8"
+                                disabled={
+                                  correctName.isPending ||
+                                  !nameFirst.trim() ||
+                                  !nameLast.trim()
+                                }
+                                onClick={() => correctName.mutate()}
+                              >
+                                {correctName.isPending ? "Saving…" : "Save correction"}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                className="h-8"
+                                onClick={() => setEditingName(false)}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+
                       <DetailRow
                         label="Qualifications"
                         value={
@@ -599,6 +690,77 @@ export default function UsersPage() {
                         label="Name"
                         value={`${detail.client.firstName} ${detail.client.lastName}`}
                       />
+
+                      <div className="space-y-2 border-t border-line pt-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-xs font-medium text-ink-muted">Legal name</p>
+                          {!editingName ? (
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => {
+                                setNameFirst(
+                                  detail.caregiver?.firstName ??
+                                    detail.client?.firstName ??
+                                    "",
+                                );
+                                setNameLast(
+                                  detail.caregiver?.lastName ??
+                                    detail.client?.lastName ??
+                                    "",
+                                );
+                                setEditingName(true);
+                              }}
+                            >
+                              Correct name
+                            </Button>
+                          ) : null}
+                        </div>
+                        {editingName ? (
+                          <div className="space-y-2 rounded border border-line bg-paper p-3">
+                            <p className="text-xs text-ink-muted">
+                              Use only when the applicant requested a correction.
+                              Users cannot change legal names themselves.
+                            </p>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              <Input
+                                value={nameFirst}
+                                onChange={(e) => setNameFirst(e.target.value)}
+                                placeholder="First name"
+                              />
+                              <Input
+                                value={nameLast}
+                                onChange={(e) => setNameLast(e.target.value)}
+                                placeholder="Last name"
+                              />
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                className="h-8"
+                                disabled={
+                                  correctName.isPending ||
+                                  !nameFirst.trim() ||
+                                  !nameLast.trim()
+                                }
+                                onClick={() => correctName.mutate()}
+                              >
+                                {correctName.isPending ? "Saving…" : "Save correction"}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                className="h-8"
+                                onClick={() => setEditingName(false)}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+
                       <DetailRow
                         label="Address"
                         value={[

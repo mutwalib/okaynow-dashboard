@@ -570,6 +570,16 @@ export function updateUserStatus(id: string, status: string) {
   });
 }
 
+export function correctUserLegalName(
+  userId: string,
+  payload: { firstName: string; lastName: string },
+) {
+  return request<AdminUserReviewDetail>(`/api/admin/users/${userId}/legal-name`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
 export function getUserOnboardingRequests(userId: string) {
   return request<OnboardingRequestItem[]>(
     `/api/admin/users/${userId}/onboarding-requests`,

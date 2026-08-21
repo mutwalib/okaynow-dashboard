@@ -21,7 +21,7 @@ const schema = z
   .object({
     /** `FAMILY:{id}` or `FACILITY:{id}` */
     clientRef: z.string().min(1, "Client is required"),
-    requiredQualification: z.enum(["CNA", "HHA", "PCA", "LPN", "RN"]),
+    requiredQualification: z.enum(["CNA", "HHA", "PCA", "LPN", "RN", "MAP", "OTHER"]),
     scheduleType: z.enum(["ONE_OFF", "DAILY_ROUTINE"]),
     /** Required for one-off only; daily routines are ongoing (no date range). */
     date: z.string().optional(),
@@ -285,9 +285,13 @@ export function ShiftForm({
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Qualification" error={errors.requiredQualification?.message}>
           <Select {...register("requiredQualification")}>
-            {QUALIFICATIONS.map((q: Qualification) => (
+            {QUALIFICATIONS.map((q) => (
               <option key={q} value={q}>
-                {q}
+                {q === "MAP"
+                  ? "MAP certification"
+                  : q === "OTHER"
+                    ? "Other (not specified)"
+                    : q}
               </option>
             ))}
           </Select>

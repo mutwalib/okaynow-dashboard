@@ -2,7 +2,7 @@
 
 export type UserRole = "CAREGIVER" | "CLIENT" | "FACILITY" | "ADMIN";
 
-export type Qualification = "CNA" | "HHA" | "PCA" | "LPN" | "RN";
+export type Qualification = "CNA" | "HHA" | "PCA" | "LPN" | "RN" | "MAP" | "OTHER";
 
 export type ShiftStatus =
   | "DRAFT"
@@ -277,7 +277,25 @@ export interface PagedResponse<T> {
   last: boolean;
 }
 
-export const QUALIFICATIONS: Qualification[] = ["CNA", "HHA", "PCA", "LPN", "RN"];
+export const QUALIFICATIONS: Qualification[] = [
+  "CNA",
+  "HHA",
+  "PCA",
+  "LPN",
+  "RN",
+  "MAP",
+  "OTHER",
+];
+
+export const QUALIFICATION_LABELS: Record<Qualification, string> = {
+  CNA: "CNA",
+  HHA: "HHA",
+  PCA: "PCA",
+  LPN: "LPN",
+  RN: "RN",
+  MAP: "MAP certification",
+  OTHER: "Other (not specified)",
+};
 
 export const SHIFT_STATUSES: ShiftStatus[] = [
   "DRAFT",
