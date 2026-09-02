@@ -26,6 +26,7 @@ import type {
   SuperAdminAgency,
   SuperAdminAgencyDetail,
   SubscriptionPlan,
+  SubscriptionPlanCatalogEntry,
   SubscriptionStatus,
   AgencySettings,
   ClientInvoice,
@@ -1179,6 +1180,27 @@ export function updateSuperAgencySubscription(
 ) {
   return request<SuperAdminAgency>(`/api/super/agencies/${agencyId}/subscription`, {
     method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function listSuperSubscriptionPlans() {
+  return request<SubscriptionPlanCatalogEntry[]>("/api/super/subscription-plans");
+}
+
+export function updateSuperSubscriptionPlan(
+  plan: SubscriptionPlan,
+  payload: {
+    displayName: string;
+    tagline?: string | null;
+    features: string[];
+    priceLabel?: string | null;
+    sortOrder?: number;
+    enabled?: boolean;
+  },
+) {
+  return request<SubscriptionPlanCatalogEntry>(`/api/super/subscription-plans/${plan}`, {
+    method: "PUT",
     body: JSON.stringify(payload),
   });
 }

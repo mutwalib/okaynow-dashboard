@@ -161,6 +161,16 @@ export interface SuperAdminAgencyDetail extends SuperAdminAgency {
   staff: SuperAdminAgencyStaff[];
 }
 
+export interface SubscriptionPlanCatalogEntry {
+  plan: SubscriptionPlan;
+  displayName: string;
+  tagline: string | null;
+  features: string[];
+  priceLabel: string | null;
+  sortOrder: number;
+  enabled: boolean;
+}
+
 export type ClientType = "FAMILY" | "FACILITY";
 
 export interface ClientProfile {

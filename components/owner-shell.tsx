@@ -21,6 +21,7 @@ import {
   Settings,
   UserCog,
   Building2,
+  CreditCard,
 } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { NotificationBell } from "@/components/notification-bell";
@@ -39,6 +40,7 @@ const NAV: NavItem[] = [
   { href: "/finance", label: "Finance", icon: CircleDollarSign },
   { href: "/clients", label: "Clients", icon: HeartHandshake },
   { href: "/agencies", label: "Agencies", icon: Building2 },
+  { href: "/plans", label: "Plans", icon: CreditCard },
   { href: "/shifts", label: "Shifts", icon: CalendarClock },
   { href: "/claims", label: "Claims", icon: Handshake },
   { href: "/reviews", label: "Reviews", icon: MessageSquareQuote },
