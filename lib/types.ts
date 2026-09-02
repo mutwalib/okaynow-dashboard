@@ -1,6 +1,6 @@
 /** Domain types aligned with backend API + expected booking/admin endpoints. */
 
-export type UserRole = "CAREGIVER" | "CLIENT" | "FACILITY" | "ADMIN";
+export type UserRole = "CAREGIVER" | "CLIENT" | "FACILITY" | "AGENCY_ADMIN" | "ADMIN";
 
 export type Qualification = "CNA" | "HHA" | "PCA" | "LPN" | "RN" | "MAP" | "OTHER";
 
@@ -94,7 +94,71 @@ export interface UserResponse {
   status: UserStatus;
   emailVerified?: boolean;
   displayName?: string | null;
+  agencyId?: string | null;
+  agencySlug?: string | null;
+  agencyDisplayName?: string | null;
+  agencyStaffRole?: "ADMIN" | "SCHEDULER" | null;
   createdAt: string;
+}
+
+export type SubscriptionStatus =
+  | "ACTIVE"
+  | "PAST_DUE"
+  | "EXPIRED"
+  | "CANCELLED"
+  | "TRIAL";
+
+export type SubscriptionPlan = "STARTER" | "PROFESSIONAL" | "FEATURED";
+
+export const SUBSCRIPTION_STATUS_LABEL: Record<SubscriptionStatus, string> = {
+  ACTIVE: "Active",
+  PAST_DUE: "Past due",
+  EXPIRED: "Expired",
+  CANCELLED: "Cancelled",
+  TRIAL: "Trial",
+};
+
+export const SUBSCRIPTION_PLAN_LABEL: Record<SubscriptionPlan, string> = {
+  STARTER: "Starter",
+  PROFESSIONAL: "Professional",
+  FEATURED: "Featured",
+};
+
+export interface SuperAdminAgency {
+  id: string;
+  slug: string;
+  displayName: string;
+  city: string | null;
+  state: string | null;
+  subscriptionStatus: SubscriptionStatus;
+  subscriptionPlan: SubscriptionPlan;
+  directoryListed: boolean;
+  hiringOpen: boolean;
+  staffCount: number;
+  subscriptionPeriodEnd: string | null;
+  createdAt: string;
+}
+
+export interface SuperAdminAgencyStaff {
+  staffId: string;
+  userId: string;
+  email: string;
+  displayName: string;
+  status: UserStatus;
+  staffRole: "ADMIN" | "SCHEDULER";
+  joinedAt: string;
+}
+
+export interface SuperAdminAgencyDetail extends SuperAdminAgency {
+  legalName: string;
+  licenseNumber: string | null;
+  addressLine: string | null;
+  zip: string | null;
+  publicDescription: string | null;
+  qualificationsSupported: Qualification[];
+  hiringNote: string | null;
+  subscriptionPeriodStart: string | null;
+  staff: SuperAdminAgencyStaff[];
 }
 
 export type ClientType = "FAMILY" | "FACILITY";
@@ -218,6 +282,7 @@ export interface CaregiverOption {
   lastName: string;
   email: string;
   qualifications: Qualification[];
+  otherQualificationDetail?: string | null;
   serviceRadiusMiles: number | null;
   homeLat: number | null;
   homeLng: number | null;
@@ -229,6 +294,7 @@ export interface ContinuityCaregiverSuggestion {
   lastName: string;
   email: string;
   qualifications: Qualification[];
+  otherQualificationDetail?: string | null;
   continuityScore: number;
   continuityLabel: string;
   rosterType: AssignmentType | null;
@@ -261,6 +327,7 @@ export interface ClientCaregiverAssignment {
   caregiverLastName: string;
   caregiverEmail: string;
   qualifications: Qualification[];
+  otherQualificationDetail?: string | null;
   serviceRadiusMiles: number | null;
   assignmentType: AssignmentType;
   active: boolean;

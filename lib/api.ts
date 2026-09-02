@@ -23,6 +23,10 @@ import type {
   UserResponse,
   UserRole,
   UserStatus,
+  SuperAdminAgency,
+  SuperAdminAgencyDetail,
+  SubscriptionPlan,
+  SubscriptionStatus,
   AgencySettings,
   ClientInvoice,
   FinanceSummary,
@@ -470,6 +474,7 @@ export interface UserFilters {
   role?: UserRole | "";
   status?: string;
   search?: string;
+  agencyId?: string;
   page?: number;
   size?: number;
 }
@@ -523,6 +528,7 @@ export interface AdminUserReviewDetail {
     firstName: string;
     lastName: string;
     qualifications: string[];
+    otherQualificationDetail: string | null;
     hourlyRateMin: number | null;
     hourlyRateMax: number | null;
     serviceRadiusMiles: number | null;
@@ -546,6 +552,16 @@ export interface AdminUserReviewDetail {
     registeringForSelf: boolean;
     medicaidEligible: string | null;
     relationshipToCareRecipient: string | null;
+  } | null;
+  agencyStaff: {
+    agencyId: string;
+    agencySlug: string;
+    agencyDisplayName: string;
+    staffRole: "ADMIN" | "SCHEDULER";
+    subscriptionStatus: string;
+    subscriptionPlan: string;
+    directoryListed: boolean;
+    hiringOpen: boolean;
   } | null;
   credentials: {
     id: string;
@@ -1139,6 +1155,31 @@ export function moderateReview(id: string, status: "PUBLISHED" | "HIDDEN") {
   return request<CaregiverReview>(`/api/admin/reviews/${id}`, {
     method: "PATCH",
     body: JSON.stringify({ status }),
+  });
+}
+
+// --- platform agencies (multi-tenant super admin) ---
+
+export function listSuperAgencies() {
+  return request<SuperAdminAgency[]>("/api/super/agencies");
+}
+
+export function getSuperAgency(agencyId: string) {
+  return request<SuperAdminAgencyDetail>(`/api/super/agencies/${agencyId}`);
+}
+
+export function updateSuperAgencySubscription(
+  agencyId: string,
+  payload: {
+    subscriptionStatus?: SubscriptionStatus;
+    subscriptionPlan?: SubscriptionPlan;
+    directoryListed?: boolean;
+    subscriptionPeriodEnd?: string | null;
+  },
+) {
+  return request<SuperAdminAgency>(`/api/super/agencies/${agencyId}/subscription`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
   });
 }
 

@@ -1,6 +1,8 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   approveUserReview,
@@ -38,7 +40,7 @@ import {
   X,
 } from "lucide-react";
 
-const ROLES: UserRole[] = ["CAREGIVER", "CLIENT", "FACILITY", "ADMIN"];
+const ROLES: UserRole[] = ["CAREGIVER", "CLIENT", "FACILITY", "AGENCY_ADMIN", "ADMIN"];
 const STATUSES: UserStatus[] = [
   "ACTIVE",
   "PENDING_REVIEW",
@@ -125,9 +127,11 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
 }
 
 export default function UsersPage() {
+  const searchParams = useSearchParams();
   const [role, setRole] = useState<UserRole | "">("");
   const [status, setStatus] = useState<UserStatus | "">("PENDING_REVIEW");
   const [search, setSearch] = useState("");
+  const [agencyId, setAgencyId] = useState("");
   const [showOwnerForm, setShowOwnerForm] = useState(false);
   const [ownerEmail, setOwnerEmail] = useState("");
   const [ownerPassword, setOwnerPassword] = useState("");
@@ -142,18 +146,29 @@ export default function UsersPage() {
   );
   const [reqType, setReqType] = useState<OnboardingFieldType>("FILE");
   const { page, setPage, pageSize, setPageSize } = useListPagination(
-    `${role}|${status}|${search}`,
+    `${role}|${status}|${search}|${agencyId}`,
   );
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
+  useEffect(() => {
+    const nextRole = searchParams.get("role");
+    const nextAgencyId = searchParams.get("agencyId");
+    if (nextRole) setRole(nextRole as UserRole);
+    if (nextAgencyId) {
+      setAgencyId(nextAgencyId);
+      setStatus("");
+    }
+  }, [searchParams]);
+
   const users = useQuery({
-    queryKey: ["owner-users", role, status, search, page, pageSize],
+    queryKey: ["owner-users", role, status, search, agencyId, page, pageSize],
     queryFn: () =>
       getAdminUsers({
         role,
         status,
         search: search || undefined,
+        agencyId: agencyId || undefined,
         page,
         size: pageSize,
       }),
@@ -294,8 +309,16 @@ export default function UsersPage() {
           </h1>
           <p className="mt-1 text-sm text-ink-muted">
             Open an applicant to see their full profile, review submitted documents,
-            request more KYC, and approve verification.
+            request more KYC, and approve verification. Agency admins appear here too.
           </p>
+          {agencyId ? (
+            <p className="mt-2 text-xs text-ink-muted">
+              Filtered to agency staff.{" "}
+              <Link href="/users" className="text-brand-deep hover:underline">
+                Clear agency filter
+              </Link>
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ExportReportButtons
@@ -397,6 +420,7 @@ export default function UsersPage() {
                   <tr>
                     <th>Applicant</th>
                     <th>Role</th>
+                    <th>Agency</th>
                     <th>Status</th>
                     <th>Created</th>
                     <th>Access</th>
@@ -426,6 +450,18 @@ export default function UsersPage() {
                         ) : null}
                       </td>
                       <td className="font-mono text-xs">{user.role}</td>
+                      <td className="text-xs text-ink-muted">
+                        {user.agencyDisplayName ? (
+                          <Link
+                            href={`/agencies?agencyId=${user.agencyId}`}
+                            className="text-brand-deep hover:underline"
+                          >
+                            {user.agencyDisplayName}
+                          </Link>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
                       <td>
                         <span className="rounded bg-surface px-2 py-1 font-mono text-[10px] font-semibold">
                           {user.status}
@@ -456,7 +492,7 @@ export default function UsersPage() {
                   ))}
                   {(users.data?.content.length ?? 0) === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-8 text-center text-ink-muted">
+                      <td colSpan={6} className="py-8 text-center text-ink-muted">
                         No users match these filters.
                       </td>
                     </tr>
@@ -625,7 +661,14 @@ export default function UsersPage() {
                         label="Qualifications"
                         value={
                           detail.caregiver.qualifications?.length
-                            ? detail.caregiver.qualifications.join(", ")
+                            ? detail.caregiver.qualifications
+                                .map((q) =>
+                                  q === "OTHER" &&
+                                  detail.caregiver?.otherQualificationDetail
+                                    ? `Other (${detail.caregiver.otherQualificationDetail})`
+                                    : q,
+                                )
+                                .join(", ")
                             : "None set"
                         }
                       />
@@ -681,6 +724,37 @@ export default function UsersPage() {
                       ) : (
                         <DetailRow label="Profile photo" value="Not uploaded yet" />
                       )}
+                    </>
+                  ) : null}
+
+                  {detail.agencyStaff ? (
+                    <>
+                      <DetailRow
+                        label="Agency"
+                        value={detail.agencyStaff.agencyDisplayName}
+                      />
+                      <DetailRow label="Agency slug" value={detail.agencyStaff.agencySlug} />
+                      <DetailRow label="Staff role" value={detail.agencyStaff.staffRole} />
+                      <DetailRow
+                        label="Subscription"
+                        value={`${detail.agencyStaff.subscriptionStatus} · ${detail.agencyStaff.subscriptionPlan}`}
+                      />
+                      <DetailRow
+                        label="Directory"
+                        value={detail.agencyStaff.directoryListed ? "Listed" : "Hidden"}
+                      />
+                      <DetailRow
+                        label="Hiring"
+                        value={detail.agencyStaff.hiringOpen ? "Open" : "Closed"}
+                      />
+                      <p className="pt-2">
+                        <Link
+                          href={`/agencies?agencyId=${detail.agencyStaff.agencyId}`}
+                          className="text-xs font-medium text-brand-deep hover:underline"
+                        >
+                          Manage agency subscription →
+                        </Link>
+                      </p>
                     </>
                   ) : null}
 

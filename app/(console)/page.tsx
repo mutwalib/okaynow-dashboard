@@ -1,13 +1,15 @@
 "use client";
 
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { getAdminClaims, getFinanceSummary, getOpsAttention, getShifts } from "@/lib/api";
+import { getAdminClaims, getAdminUsers, getFinanceSummary, getOpsAttention, getShifts, listSuperAgencies } from "@/lib/api";
 import { formatMoney, defaultStatsDateRange } from "@/lib/format";
 import {
   AlertTriangle,
+  Building2,
   CircleDollarSign,
   LayoutDashboard,
   Plus,
+  UserCog,
 } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
 import Link from "next/link";
@@ -58,6 +60,18 @@ export default function DashboardPage() {
     refetchInterval: 60_000,
   });
 
+  const agencies = useQuery({
+    queryKey: ["dash-agencies"],
+    queryFn: listSuperAgencies,
+    retry: false,
+  });
+
+  const pendingUsers = useQuery({
+    queryKey: ["dash-pending-users"],
+    queryFn: () => getAdminUsers({ status: "PENDING_REVIEW", size: 1 }),
+    retry: false,
+  });
+
   const [openQ, claimedQ, confirmedQ, completedQ, claimsQ] = results;
   const loading = results.some((r) => r.isLoading) || finance.isLoading;
   const claimsUnavailable = claimsQ.isError;
@@ -85,6 +99,14 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <ButtonLink href="/agencies" size="sm" variant="secondary">
+            <Building2 className="h-3.5 w-3.5" aria-hidden />
+            Agencies
+          </ButtonLink>
+          <ButtonLink href="/users" size="sm" variant="secondary">
+            <UserCog className="h-3.5 w-3.5" aria-hidden />
+            Users
+          </ButtonLink>
           <ButtonLink href="/finance" size="sm" variant="secondary">
             <CircleDollarSign className="h-3.5 w-3.5" aria-hidden />
             Finance
@@ -95,6 +117,31 @@ export default function DashboardPage() {
           </ButtonLink>
         </div>
       </div>
+
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Link
+          href="/agencies"
+          className="rounded border border-line bg-panel px-4 py-3 transition hover:border-brand/30"
+        >
+          <p className="font-mono text-[10px] uppercase tracking-wider text-ink-muted">
+            Agencies
+          </p>
+          <p className="mt-1 font-display text-3xl font-semibold tabular-nums">
+            {agencies.data?.length ?? "—"}
+          </p>
+        </Link>
+        <Link
+          href="/users?status=PENDING_REVIEW"
+          className="rounded border border-line bg-panel px-4 py-3 transition hover:border-brand/30"
+        >
+          <p className="font-mono text-[10px] uppercase tracking-wider text-ink-muted">
+            Pending review
+          </p>
+          <p className="mt-1 font-display text-3xl font-semibold tabular-nums">
+            {pendingUsers.data?.totalElements ?? "—"}
+          </p>
+        </Link>
+      </section>
 
       {attention.isLoading ? (
         <p className="text-sm text-ink-muted">Checking what needs attention…</p>
