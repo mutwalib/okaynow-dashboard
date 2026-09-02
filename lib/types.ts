@@ -172,6 +172,15 @@ export interface SubscriptionPlanCatalogEntry {
   enabled: boolean;
 }
 
+export interface PlanCapabilityEntry {
+  code: string;
+  label: string;
+  category: string;
+  introducedIn: SubscriptionPlan;
+  inheritSummary: boolean;
+  recommended: boolean;
+}
+
 export type ClientType = "FAMILY" | "FACILITY";
 
 export interface ClientProfile {

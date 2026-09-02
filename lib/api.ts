@@ -27,6 +27,7 @@ import type {
   SuperAdminAgencyDetail,
   SubscriptionPlan,
   SubscriptionPlanCatalogEntry,
+  PlanCapabilityEntry,
   SubscriptionStatus,
   AgencySettings,
   ClientInvoice,
@@ -1186,6 +1187,10 @@ export function updateSuperAgencySubscription(
 
 export function listSuperSubscriptionPlans() {
   return request<SubscriptionPlanCatalogEntry[]>("/api/super/subscription-plans");
+}
+
+export function listPlanCapabilities() {
+  return request<PlanCapabilityEntry[]>("/api/super/subscription-plans/capabilities");
 }
 
 export function updateSuperSubscriptionPlan(
