@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CreditCard, Save } from "lucide-react";
 import { listSuperSubscriptionPlans, updateSuperSubscriptionPlan } from "@/lib/api";
@@ -11,6 +11,28 @@ import type { SubscriptionPlan } from "@/lib/types";
 
 const PLAN_ORDER: SubscriptionPlan[] = ["STARTER", "PROFESSIONAL", "FEATURED"];
 
+function centsToDollars(cents: number): string {
+  if (!Number.isFinite(cents) || cents <= 0) return "";
+  return (cents / 100).toFixed(cents % 100 === 0 ? 0 : 2);
+}
+
+function dollarsToCents(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parsed = Number.parseFloat(trimmed.replace(/,/g, ""));
+  if (!Number.isFinite(parsed) || parsed < 0.5) return null;
+  return Math.round(parsed * 100);
+}
+
+function formatPricePreview(cents: number): string {
+  if (cents < 50) return "";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: cents % 100 === 0 ? 0 : 2,
+  }).format(cents / 100) + "/mo";
+}
+
 export default function SubscriptionPlansPage() {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
@@ -18,7 +40,7 @@ export default function SubscriptionPlansPage() {
   const [displayName, setDisplayName] = useState("");
   const [tagline, setTagline] = useState("");
   const [featuresText, setFeaturesText] = useState("");
-  const [priceLabel, setPriceLabel] = useState("");
+  const [monthlyPriceUsd, setMonthlyPriceUsd] = useState("");
   const [enabled, setEnabled] = useState(true);
 
   const plans = useQuery({
@@ -33,22 +55,32 @@ export default function SubscriptionPlansPage() {
     setDisplayName(current.displayName);
     setTagline(current.tagline ?? "");
     setFeaturesText(current.features.join("\n"));
-    setPriceLabel(current.priceLabel ?? "");
+    setMonthlyPriceUsd(centsToDollars(current.monthlyPriceCents));
     setEnabled(current.enabled);
   }, [current]);
 
+  const previewPrice = useMemo(() => {
+    const cents = dollarsToCents(monthlyPriceUsd);
+    return cents != null ? formatPricePreview(cents) : "";
+  }, [monthlyPriceUsd]);
+
   const save = useMutation({
-    mutationFn: () =>
-      updateSuperSubscriptionPlan(selected, {
+    mutationFn: () => {
+      const monthlyPriceCents = dollarsToCents(monthlyPriceUsd);
+      if (monthlyPriceCents == null) {
+        throw new Error("Enter a monthly price of at least $0.50");
+      }
+      return updateSuperSubscriptionPlan(selected, {
         displayName: displayName.trim(),
         tagline: tagline.trim() || null,
         features: featuresText
           .split("\n")
           .map((line) => line.trim())
           .filter(Boolean),
-        priceLabel: priceLabel.trim() || null,
+        monthlyPriceCents,
         enabled,
-      }),
+      });
+    },
     onSuccess: () => {
       showToast("Plan saved", "success");
       queryClient.invalidateQueries({ queryKey: ["super-subscription-plans"] });
@@ -69,8 +101,9 @@ export default function SubscriptionPlansPage() {
           Subscription plans
         </h1>
         <p className="mt-1 max-w-2xl text-sm text-ink-muted">
-          Configure what each agency tier includes. Agencies see this catalog on
-          their billing page; new tenants start on <strong>Starter</strong>.
+          Configure what each agency tier includes and the monthly subscription
+          price. Agencies are charged this amount at Stripe Checkout; new tenants
+          start on <strong>Starter</strong>.
         </p>
       </div>
 
@@ -125,13 +158,25 @@ export default function SubscriptionPlansPage() {
                 />
               </label>
               <label className="block text-sm">
-                <span className="font-medium text-ink">Price label (optional)</span>
-                <Input
-                  className="mt-1"
-                  value={priceLabel}
-                  onChange={(e) => setPriceLabel(e.target.value)}
-                  placeholder="e.g. $299/mo — display only"
-                />
+                <span className="font-medium text-ink">Monthly price (USD)</span>
+                <span className="mt-0.5 block text-xs text-ink-muted">
+                  Charged each month when an agency subscribes via Stripe.
+                </span>
+                <div className="relative mt-1">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted">
+                    $
+                  </span>
+                  <Input
+                    className="pl-7"
+                    type="number"
+                    min="0.50"
+                    step="0.01"
+                    value={monthlyPriceUsd}
+                    onChange={(e) => setMonthlyPriceUsd(e.target.value)}
+                    placeholder="299"
+                    required
+                  />
+                </div>
               </label>
               <label className="block text-sm">
                 <span className="font-medium text-ink">Included capabilities</span>
@@ -170,8 +215,8 @@ export default function SubscriptionPlansPage() {
             <h3 className="mt-3 font-display text-lg">
               {displayName || "Plan name"}
             </h3>
-            {priceLabel ? (
-              <p className="mt-1 text-sm font-medium text-ink">{priceLabel}</p>
+            {previewPrice ? (
+              <p className="mt-1 text-sm font-medium text-ink">{previewPrice}</p>
             ) : null}
             {tagline ? (
               <p className="mt-2 text-sm text-ink-muted">{tagline}</p>

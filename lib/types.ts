@@ -166,7 +166,8 @@ export interface SubscriptionPlanCatalogEntry {
   displayName: string;
   tagline: string | null;
   features: string[];
-  priceLabel: string | null;
+  monthlyPriceCents: number;
+  priceDisplay: string;
   sortOrder: number;
   enabled: boolean;
 }

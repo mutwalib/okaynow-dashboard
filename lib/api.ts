@@ -1194,7 +1194,7 @@ export function updateSuperSubscriptionPlan(
     displayName: string;
     tagline?: string | null;
     features: string[];
-    priceLabel?: string | null;
+    monthlyPriceCents: number;
     sortOrder?: number;
     enabled?: boolean;
   },
