@@ -247,11 +247,14 @@ export interface Shift {
 
 export interface ScheduleRosterSlot {
   claimId: string;
-  caregiverProfileId: string;
-  firstName: string;
-  lastName: string;
+  caregiverProfileId: string | null;
+  firstName: string | null;
+  lastName: string | null;
   status: ClaimStatus;
   source: "MARKETPLACE" | "ASSIGNED" | "INVITE";
+  profilePhotoUrl?: string | null;
+  masked?: boolean;
+  displayLabel?: string | null;
 }
 
 export interface ScheduleShiftCard {
