@@ -45,6 +45,7 @@ const STATUSES: UserStatus[] = [
   "ACTIVE",
   "PENDING_REVIEW",
   "PENDING_VERIFICATION",
+  "RESTRICTED",
   "SUSPENDED",
   "DEACTIVATED",
 ];
@@ -302,12 +303,12 @@ export default function UsersPage() {
   return (
     <div className="space-y-4 animate-in">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
+      <div>
           <h1 className="inline-flex items-center gap-2 font-display text-2xl font-semibold">
             <UserCog className="h-5 w-5 text-ink-muted" aria-hidden />
             Users & KYC review
           </h1>
-          <p className="mt-1 text-sm text-ink-muted">
+        <p className="mt-1 text-sm text-ink-muted">
             Open an applicant to see their full profile, review submitted documents,
             request more KYC, and approve verification. Agency admins appear here too.
           </p>
@@ -542,7 +543,7 @@ export default function UsersPage() {
                     </p>
                     <h2 className="font-display text-xl font-semibold">
                       {detail.displayName}
-                    </h2>
+        </h2>
                     <p className="text-sm text-ink-muted">{detail.email}</p>
                   </div>
                   <span className="rounded bg-surface px-2 py-1 font-mono text-[10px] font-semibold">

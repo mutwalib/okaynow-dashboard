@@ -60,6 +60,7 @@ const ROLES: UserRole[] = ["CAREGIVER", "CLIENT", "FACILITY", "ADMIN"];
 const USER_STATUSES: UserStatus[] = [
   "ACTIVE",
   "PENDING_VERIFICATION",
+  "RESTRICTED",
   "SUSPENDED",
   "DEACTIVATED",
 ];

@@ -19,6 +19,16 @@ export function notificationHref(
     return role === "ADMIN" ? "/finance" : role === "CLIENT" ? "/client/billing" : null;
   }
 
+  if (
+    role === "ADMIN" &&
+    (notification.type === "CAREGIVER_NO_SHOW_WARNING" ||
+      notification.type === "CAREGIVER_AUTO_RESTRICTED")
+  ) {
+    const caregiverUserId = parseCaregiverUserId(notification.payload);
+    if (caregiverUserId) return `/users?highlight=${caregiverUserId}`;
+    return "/users";
+  }
+
   const shiftId = parseNotificationShiftId(notification.payload);
   if (!shiftId) return null;
 
@@ -33,5 +43,17 @@ export function notificationHref(
       return `/facility/shifts/${shiftId}`;
     default:
       return null;
+  }
+}
+
+function parseCaregiverUserId(payload: string | null): string | null {
+  if (!payload) return null;
+  try {
+    const data = JSON.parse(payload) as { caregiverUserId?: string };
+    return typeof data.caregiverUserId === "string" && data.caregiverUserId
+      ? data.caregiverUserId
+      : null;
+  } catch {
+    return null;
   }
 }
