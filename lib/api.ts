@@ -238,7 +238,7 @@ async function request<T>(
     res = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
   } catch {
     throw new ApiError(
-      `Could not reach API at ${API_BASE_URL}. Is the backend running?`,
+      "We're having trouble connecting. Please check your internet connection and try again.",
       0,
     );
   }
@@ -999,7 +999,7 @@ async function downloadPdfBlob(
     res = await fetch(`${API_BASE_URL}${path}`, { headers });
   } catch {
     throw new ApiError(
-      `Could not reach API at ${API_BASE_URL}. Is the backend running?`,
+      "We're having trouble connecting. Please check your internet connection and try again.",
       0,
     );
   }
@@ -1079,7 +1079,7 @@ export async function downloadAdminReport(
     res = await fetch(`${API_BASE_URL}${path}`, { headers });
   } catch {
     throw new ApiError(
-      `Could not reach API at ${API_BASE_URL}. Is the backend running?`,
+      "We're having trouble connecting. Please check your internet connection and try again.",
       0,
     );
   }
