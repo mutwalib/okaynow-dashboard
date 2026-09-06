@@ -29,6 +29,7 @@ import type {
   SubscriptionPlanCatalogEntry,
   PlanCapabilityEntry,
   SubscriptionStatus,
+  AgencyAccessStatus,
   AgencySettings,
   ClientInvoice,
   FinanceSummary,
@@ -1180,6 +1181,19 @@ export function updateSuperAgencySubscription(
   },
 ) {
   return request<SuperAdminAgency>(`/api/super/agencies/${agencyId}/subscription`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateSuperAgencyAccess(
+  agencyId: string,
+  payload: {
+    accessStatus: AgencyAccessStatus;
+    accessStatusNote?: string | null;
+  },
+) {
+  return request<SuperAdminAgency>(`/api/super/agencies/${agencyId}/access`, {
     method: "PATCH",
     body: JSON.stringify(payload),
   });

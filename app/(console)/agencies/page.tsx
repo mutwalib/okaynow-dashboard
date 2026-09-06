@@ -8,6 +8,7 @@ import { Building2, ExternalLink, Users } from "lucide-react";
 import {
   getSuperAgency,
   listSuperAgencies,
+  updateSuperAgencyAccess,
   updateSuperAgencySubscription,
   updateUserStatus,
 } from "@/lib/api";
@@ -15,12 +16,21 @@ import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/field";
 import { useToast } from "@/lib/toast-context";
 import {
+  AGENCY_ACCESS_STATUS_LABEL,
   SUBSCRIPTION_PLAN_LABEL,
   SUBSCRIPTION_STATUS_LABEL,
+  type AgencyAccessStatus,
   type SubscriptionPlan,
   type SubscriptionStatus,
   type UserStatus,
 } from "@/lib/types";
+
+const ACCESS_STATUSES: AgencyAccessStatus[] = [
+  "PENDING_APPROVAL",
+  "ACTIVE",
+  "SUSPENDED",
+  "BLOCKED",
+];
 
 const STATUSES: SubscriptionStatus[] = [
   "ACTIVE",
@@ -51,6 +61,9 @@ export default function AgenciesPage() {
   const [subPlan, setSubPlan] = useState<SubscriptionPlan>("STARTER");
   const [directoryListed, setDirectoryListed] = useState(true);
   const [periodEnd, setPeriodEnd] = useState("");
+  const [accessStatus, setAccessStatus] =
+    useState<AgencyAccessStatus>("PENDING_APPROVAL");
+  const [accessNote, setAccessNote] = useState("");
 
   const agencies = useQuery({
     queryKey: ["super-agencies"],
@@ -78,6 +91,8 @@ export default function AgenciesPage() {
         ? detail.data.subscriptionPeriodEnd.slice(0, 10)
         : "",
     );
+    setAccessStatus(detail.data.accessStatus);
+    setAccessNote(detail.data.accessStatusNote ?? "");
   }, [detail.data]);
 
   const filtered = useMemo(() => {
@@ -110,6 +125,23 @@ export default function AgenciesPage() {
     onError: (err: Error) => showToast(err.message, "error"),
   });
 
+  const saveAccess = useMutation({
+    mutationFn: (nextStatus?: AgencyAccessStatus) => {
+      const status = nextStatus ?? accessStatus;
+      if (nextStatus) setAccessStatus(nextStatus);
+      return updateSuperAgencyAccess(selectedId!, {
+        accessStatus: status,
+        accessStatusNote: accessNote.trim() || null,
+      });
+    },
+    onSuccess: () => {
+      showToast("Agency access updated", "success");
+      queryClient.invalidateQueries({ queryKey: ["super-agencies"] });
+      queryClient.invalidateQueries({ queryKey: ["super-agency", selectedId] });
+    },
+    onError: (err: Error) => showToast(err.message, "error"),
+  });
+
   const changeUserStatus = useMutation({
     mutationFn: ({ userId, status }: { userId: string; status: UserStatus }) =>
       updateUserStatus(userId, status),
@@ -128,6 +160,7 @@ export default function AgenciesPage() {
       setSubStatus(row.subscriptionStatus);
       setSubPlan(row.subscriptionPlan);
       setDirectoryListed(row.directoryListed);
+      setAccessStatus(row.accessStatus);
       setPeriodEnd(
         row.subscriptionPeriodEnd
           ? row.subscriptionPeriodEnd.slice(0, 10)
@@ -146,8 +179,8 @@ export default function AgenciesPage() {
           Agencies & tenants
         </h1>
         <p className="mt-1 text-sm text-ink-muted">
-          View all subscribed agencies, manage subscription access, and review
-          agency staff accounts.
+          Approve new agencies, suspend or block tenants, manage subscription
+          access, and review agency staff accounts.
         </p>
       </div>
 
@@ -164,6 +197,7 @@ export default function AgenciesPage() {
             <thead>
               <tr>
                 <th>Agency</th>
+                <th>Access</th>
                 <th>Subscription</th>
                 <th>Staff</th>
                 <th>Directory</th>
@@ -191,6 +225,21 @@ export default function AgenciesPage() {
                     )}
                   </td>
                   <td>
+                    <span
+                      className={`inline-flex rounded px-2 py-0.5 text-[10px] font-semibold ${
+                        a.accessStatus === "ACTIVE"
+                          ? "bg-emerald-100 text-emerald-900"
+                          : a.accessStatus === "PENDING_APPROVAL"
+                            ? "bg-amber-100 text-amber-900"
+                            : a.accessStatus === "SUSPENDED"
+                              ? "bg-orange-100 text-orange-900"
+                              : "bg-red-100 text-red-900"
+                      }`}
+                    >
+                      {AGENCY_ACCESS_STATUS_LABEL[a.accessStatus]}
+                    </span>
+                  </td>
+                  <td>
                     <div className="font-mono text-[10px]">
                       {SUBSCRIPTION_STATUS_LABEL[a.subscriptionStatus]}
                     </div>
@@ -207,7 +256,7 @@ export default function AgenciesPage() {
               ))}
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-8 text-center text-ink-muted">
+                  <td colSpan={5} className="py-8 text-center text-ink-muted">
                     {agencies.isLoading ? "Loading…" : "No agencies found."}
                   </td>
                 </tr>
@@ -268,6 +317,79 @@ export default function AgenciesPage() {
                   </a>
                 </div>
               </div>
+
+              <section className="space-y-3 rounded border border-line bg-surface p-3">
+                <h3 className="text-sm font-semibold">Access controls</h3>
+                <p className="text-xs text-ink-muted">
+                  New agencies start as pending. Approve to unlock the console
+                  and Starter trial. Suspend or block to revoke operational
+                  access without deleting the tenant.
+                </p>
+                <label className="block text-xs text-ink-muted">
+                  Access status
+                  <Select
+                    className="mt-1"
+                    value={accessStatus}
+                    onChange={(e) =>
+                      setAccessStatus(e.target.value as AgencyAccessStatus)
+                    }
+                  >
+                    {ACCESS_STATUSES.map((s) => (
+                      <option key={s} value={s}>
+                        {AGENCY_ACCESS_STATUS_LABEL[s]}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
+                <label className="block text-xs text-ink-muted">
+                  Note to agency (optional)
+                  <Input
+                    className="mt-1"
+                    value={accessNote}
+                    onChange={(e) => setAccessNote(e.target.value)}
+                    placeholder="Shown when suspended or blocked…"
+                  />
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    disabled={saveAccess.isPending}
+                    onClick={() => saveAccess.mutate("ACTIVE")}
+                  >
+                    Approve
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={saveAccess.isPending}
+                    onClick={() => saveAccess.mutate("SUSPENDED")}
+                  >
+                    Suspend
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={saveAccess.isPending}
+                    onClick={() => saveAccess.mutate("BLOCKED")}
+                  >
+                    Block
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={saveAccess.isPending}
+                    onClick={() => saveAccess.mutate(undefined)}
+                  >
+                    {saveAccess.isPending ? "Saving…" : "Save access"}
+                  </Button>
+                </div>
+                {agency.approvedAt ? (
+                  <p className="text-xs text-ink-muted">
+                    Approved{" "}
+                    {new Date(agency.approvedAt).toLocaleString()}
+                  </p>
+                ) : null}
+              </section>
 
               <section className="space-y-3 rounded border border-line bg-surface p-3">
                 <h3 className="text-sm font-semibold">Subscription controls</h3>

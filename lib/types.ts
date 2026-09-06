@@ -36,6 +36,28 @@ export type UserStatus =
   | "SUSPENDED"
   | "DEACTIVATED";
 
+export const USER_STATUS_LABEL: Record<UserStatus, string> = {
+  PENDING_VERIFICATION: "Pending email verification",
+  PENDING_REVIEW: "Pending review",
+  ACTIVE: "Active",
+  RESTRICTED: "Restricted",
+  SUSPENDED: "Suspended",
+  DEACTIVATED: "Deactivated",
+};
+
+export function formatStatusLabel(
+  status: string | null | undefined,
+  known?: Record<string, string>,
+): string {
+  if (!status) return "";
+  if (known?.[status]) return known[status];
+  return status
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
 export type MedicaidEligibility =
   | "YES"
   | "NO"
@@ -111,6 +133,19 @@ export type SubscriptionStatus =
 
 export type SubscriptionPlan = "STARTER" | "PROFESSIONAL" | "FEATURED";
 
+export type AgencyAccessStatus =
+  | "PENDING_APPROVAL"
+  | "ACTIVE"
+  | "SUSPENDED"
+  | "BLOCKED";
+
+export const AGENCY_ACCESS_STATUS_LABEL: Record<AgencyAccessStatus, string> = {
+  PENDING_APPROVAL: "Pending approval",
+  ACTIVE: "Active",
+  SUSPENDED: "Suspended",
+  BLOCKED: "Blocked",
+};
+
 export const SUBSCRIPTION_STATUS_LABEL: Record<SubscriptionStatus, string> = {
   ACTIVE: "Active",
   PAST_DUE: "Past due",
@@ -131,6 +166,7 @@ export interface SuperAdminAgency {
   displayName: string;
   city: string | null;
   state: string | null;
+  accessStatus: AgencyAccessStatus;
   subscriptionStatus: SubscriptionStatus;
   subscriptionPlan: SubscriptionPlan;
   directoryListed: boolean;
@@ -158,6 +194,9 @@ export interface SuperAdminAgencyDetail extends SuperAdminAgency {
   publicDescription: string | null;
   qualificationsSupported: Qualification[];
   hiringNote: string | null;
+  accessStatusNote: string | null;
+  approvedAt: string | null;
+  accessStatusUpdatedAt: string | null;
   subscriptionPeriodStart: string | null;
   staff: SuperAdminAgencyStaff[];
 }

@@ -21,6 +21,8 @@ import type { UserRole, UserStatus } from "@/lib/types";
 import {
   CARE_RECIPIENT_RELATIONSHIP_LABEL,
   MEDICAID_ELIGIBILITY_LABEL,
+  USER_STATUS_LABEL,
+  formatStatusLabel,
   type CareRecipientRelationship,
   type MedicaidEligibility,
 } from "@/lib/types";
@@ -398,7 +400,7 @@ export default function UsersPage() {
           <option value="">All statuses</option>
           {STATUSES.map((value) => (
             <option key={value} value={value}>
-              {value}
+              {USER_STATUS_LABEL[value]}
             </option>
           ))}
         </Select>
@@ -464,8 +466,8 @@ export default function UsersPage() {
                         )}
                       </td>
                       <td>
-                        <span className="rounded bg-surface px-2 py-1 font-mono text-[10px] font-semibold">
-                          {user.status}
+                        <span className="rounded bg-surface px-2 py-1 text-[10px] font-semibold">
+                          {formatStatusLabel(user.status, USER_STATUS_LABEL)}
                         </span>
                       </td>
                       <td className="whitespace-nowrap text-ink-muted">
@@ -484,7 +486,7 @@ export default function UsersPage() {
                         >
                           {STATUSES.map((value) => (
                             <option key={value} value={value}>
-                              {value}
+                              {USER_STATUS_LABEL[value]}
                             </option>
                           ))}
                         </Select>
@@ -1097,7 +1099,7 @@ export default function UsersPage() {
               ) : (
                 <p className="text-sm text-ink-muted">
                   This account is not in pending review. You can still request KYC,
-                  which will move them back to PENDING_REVIEW.
+                  which will move them back to pending review.
                 </p>
               )}
             </div>
